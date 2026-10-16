@@ -40,7 +40,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: app/libs/libbox.aar
-          key: libbox-${{ env.SING_BOX_VERSION }}-${{ env.LIBBOX_TAGS }}-v1
+          key: libbox-${{ env.SING_BOX_VERSION }}-${{ hashFiles('.github/workflows/build.yml') }}
 
       - uses: actions/setup-go@v5
         if: steps.libbox.outputs.cache-hit != 'true'

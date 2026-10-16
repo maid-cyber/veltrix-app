@@ -1,0 +1,104 @@
+name: Windows app
+
+on:
+  push:
+    branches: [main]
+    paths: ['windows/**', '.github/workflows/windows.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SING_BOX_VERSION: v1.13.21
+
+jobs:
+  # screenshotovi ekrana sa primjer podacima (za provjeru izgleda) idu na granu ci-shots
+  shots:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
+      - name: Render screens
+        run: gradle -p windows shots --no-daemon --console=plain 2>&1 | tee shots.log; test ${PIPESTATUS[0]} -eq 0
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|Exception" -A4 shots.log | head -120 > err.txt || true
+          python3 - <<'PY'
+          lines = open('err.txt').read().splitlines()
+          for i in range(0, len(lines), 15):
+              print('::error::' + '%0A'.join(l.replace('%', '%25') for l in lines[i:i+15]))
+          PY
+      - name: Publish screenshots
+        run: |
+          mkdir -p /tmp/shots && cp windows/build/shots/*.png /tmp/shots/
+          cd /tmp/shots && git init -q && git checkout -q -b ci-shots && git add . \
+            && git -c user.name=ci -c user.email=ci@localhost commit -qm "shots ${{ github.run_number }}" \
+            && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" ci-shots
+
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.11.1' }
+
+      - name: Download sing-box (VPN motor)
+        shell: pwsh
+        run: |
+          $v = $env:SING_BOX_VERSION.TrimStart('v')
+          Invoke-WebRequest "https://github.com/SagerNet/sing-box/releases/download/$env:SING_BOX_VERSION/sing-box-$v-windows-amd64.zip" -OutFile sb.zip
+          Expand-Archive sb.zip -DestinationPath sb
+          New-Item -ItemType Directory -Force windows/resources/windows | Out-Null
+          Copy-Item "sb/sing-box-$v-windows-amd64/sing-box.exe" windows/resources/windows/
+          & windows/resources/windows/sing-box.exe check -c ci/config-windows.json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Build app
+        shell: bash
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+        run: gradle -p windows createDistributable --no-daemon --console=plain 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
+
+      - name: Report errors
+        if: failure()
+        shell: bash
+        run: |
+          grep -E "^e: |error:|What went wrong|Exception" -A4 build.log | head -120 > err.txt || true
+          python - <<'PY'
+          lines = open('err.txt', encoding='utf-8', errors='ignore').read().splitlines()
+          for i in range(0, len(lines), 15):
+              print('::error::' + '%0A'.join(l.replace('%', '%25') for l in lines[i:i+15]))
+          PY
+
+      - name: Require administrator (VPN adapter)
+        shell: pwsh
+        run: |
+          $mt = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter mt.exe | Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
+          $exe = "windows/build/compose/binaries/main/app/VeltrixVPN/VeltrixVPN.exe"
+          & $mt.FullName -nologo -manifest windows/packaging/admin.manifest "-outputresource:$exe;#1"
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-ChildItem windows/build/compose/binaries/main/app/VeltrixVPN/app/resources
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc /Qp "/DMyVersion=1.0.${{ github.run_number }}" windows/packaging/installer.iss
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: win-${{ github.run_number }}
+          name: Veltrix VPN za Windows 1.0.${{ github.run_number }}
+          body: Instalacija za Windows 10/11 (64-bit). Pokreni Veltrix-VPN-Setup i prati korake.
+          files: windows/build/installer/*.exe
+          prerelease: true

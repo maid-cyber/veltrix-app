@@ -207,6 +207,7 @@ class MainActivity : ComponentActivity() {
                     sub == "apps" -> AppsScreen(vm) { sub = "" }
                     sub == "devices" -> DevicesScreen(vm) { sub = "" }
                     sub == "history" -> HistoryScreen(vm) { sub = "" }
+                    sub == "diag" -> DiagnosticsScreen(vm) { sub = "" }
                     tab == 0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 3 })
                     tab == 1 -> LocationsScreen(vm, onPicked = { tab = 0 })
                     tab == 2 -> SecurityScreen(vm, onApps = { sub = "apps" })

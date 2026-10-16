@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -242,5 +243,71 @@ fun HistoryScreen(vm: MainViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+// ---------------------------------------------------------------- dijagnostika veze
+@Composable
+fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
+    val ctx = LocalContext.current
+    val status by vm.status.collectAsState()
+    var results by remember { mutableStateOf<List<com.veltrix.vpn.data.Diagnostics.Result>?>(null) }
+    var running by remember { mutableStateOf(false) }
+    var log by remember { mutableStateOf("") }
+    var tick by remember { mutableStateOf(0) }
+    LaunchedEffect(tick) {
+        running = true
+        results = null
+        results = com.veltrix.vpn.data.Diagnostics.run(vm.currentServer(), status == com.veltrix.vpn.bg.Status.Started)
+        log = withContext(Dispatchers.IO) { com.veltrix.vpn.data.Diagnostics.logTail() }
+        running = false
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+        SubHeader(t("Connection test", "Dijagnostika veze"), onBack)
+        Text(
+            if (status == com.veltrix.vpn.bg.Status.Started) t("VPN is connected. Testing traffic through it.", "VPN je spojen. Testiram promet kroz njega.")
+            else t("Connect the VPN first to test traffic through it.", "Spoji VPN pa ponovi test da provjerim i promet kroz njega."),
+            color = C.muted, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp),
+        )
+        Spacer(Modifier.height(10.dp))
+        Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth()) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val r = results
+                if (r == null) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(color = C.red, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(10.dp)); Text(t("Testing…", "Testiram…"), color = C.soft)
+                    }
+                } else r.forEach { x ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Text(if (x.ok) "✓" else "✗", color = if (x.ok) C.green else C.redHi, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(24.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(x.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text(x.detail, color = C.muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.weight(1f)) { BigButton(t("Run again", "Ponovi test"), null, filled = !running) { if (!running) tick++ } }
+            Box(Modifier.weight(1f)) {
+                BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false) {
+                    val text = (results.orEmpty().joinToString("\n") { (if (it.ok) "OK  " else "ERR ") + it.name + ": " + it.detail }) + "\n\n" + log
+                    val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
+                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("Veltrix", text))
+                    android.widget.Toast.makeText(ctx, t("Copied", "Kopirano"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        Text(t("VPN engine log", "Log VPN motora"), color = C.soft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp))
+        Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth()) {
+            Text(
+                log.ifBlank { t("Empty. Connect the VPN to create a log.", "Prazno. Spoji VPN da nastane log.") },
+                color = C.soft, fontSize = 10.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, modifier = Modifier.padding(12.dp),
+            )
+        }
+        Spacer(Modifier.height(24.dp))
     }
 }

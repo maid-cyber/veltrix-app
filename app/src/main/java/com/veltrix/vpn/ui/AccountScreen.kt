@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.NetworkCheck
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
@@ -162,6 +163,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
         }
         Spacer(Modifier.height(14.dp))
         SecGroup {
+            SecRow(Icons.Outlined.NetworkCheck, t("Connection test", "Dijagnostika veze"), t("Find out why the internet does not work", "Provjeri zašto internet ne radi"), trailing = { Chev() }, onClick = { onSub("diag") })
             SecRow(
                 Icons.Outlined.Info, t("Version ", "Verzija ") + BuildConfig.VERSION_NAME,
                 upd?.let { t("Update available: ", "Dostupna nova: ") + it.version } ?: "sing-box · GPLv3",

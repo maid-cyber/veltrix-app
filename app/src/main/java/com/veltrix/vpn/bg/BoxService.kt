@@ -118,6 +118,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
         GlobalScope.launch(Dispatchers.IO) {
             try {
                 val content = configFile(service).readText()
+                runCatching { com.veltrix.vpn.data.ConfigBuilder.logFile().writeText("") }
                 val server = CommandServer(this@BoxService, platformInterface)
                 server.start()
                 commandServer = server

@@ -29,6 +29,8 @@ data class SecurityOptions(
 
 /** sing-box konfiguracija za izabrani server. */
 object ConfigBuilder {
+    const val DIAG_PORT = 10808
+
     fun outboundFor(server: Server, protocol: String): JSONObject {
         val list = (0 until server.outbounds.length()).map { server.outbounds.getJSONObject(it) }
         val pick = when (protocol) {
@@ -38,6 +40,9 @@ object ConfigBuilder {
         } ?: list.firstOrNull { it.optString("type") == "vless" } ?: list.first()
         return JSONObject(pick.toString()).put("tag", "proxy")
     }
+
+    /** Log sing-boxa (za ekran Dijagnostika); briše se pri svakom spajanju. */
+    fun logFile() = java.io.File(com.veltrix.vpn.App.application.filesDir, "box.log")
 
     fun build(server: Server, protocol: String, sec: SecurityOptions = SecurityOptions()): String {
         // DNS: običan UDP na port 53 server presretne i filtrira; HTTPS (443) prolazi bez filtera
@@ -73,7 +78,7 @@ object ConfigBuilder {
         rules.put(JSONObject().put("ip_is_private", true).put("outbound", "direct"))
 
         val config = JSONObject()
-            .put("log", JSONObject().put("level", "warn"))
+            .put("log", JSONObject().put("level", "info").put("timestamp", true).put("output", logFile().path))
             .put(
                 "dns",
                 JSONObject()
@@ -81,7 +86,8 @@ object ConfigBuilder {
                     .put("final", "remote")
                     .put("strategy", "ipv4_only"),
             )
-            .put("inbounds", JSONArray().put(tun))
+            // lokalni proxy samo za test u ekranu Dijagnostika (sluša samo na 127.0.0.1)
+            .put("inbounds", JSONArray().put(tun).put(JSONObject().put("type", "mixed").put("tag", "diag-in").put("listen", "127.0.0.1").put("listen_port", DIAG_PORT)))
             .put(
                 "outbounds",
                 JSONArray()

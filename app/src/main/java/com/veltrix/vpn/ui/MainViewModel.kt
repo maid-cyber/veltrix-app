@@ -108,6 +108,56 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    // ------------------------------------------------------------ probni nalog i produženje
+    fun trial(ref: String) {
+        viewModelScope.launch {
+            loading.value = true
+            try {
+                val id = android.provider.Settings.Secure.getString(App.application.contentResolver, android.provider.Settings.Secure.ANDROID_ID) ?: java.util.UUID.randomUUID().toString()
+                val device = "a-" + java.security.MessageDigest.getInstance("SHA-256").digest(("veltrix:" + id).toByteArray()).joinToString("") { "%02x".format(it) }.take(40)
+                val link = Api.trial(device, ref.trim())
+                Store.refCodeInput = ref.trim()
+                loading.value = false
+                login(link)
+            } catch (e: Exception) {
+                message.value = e.message ?: t("Trial is not available.", "Probni nalog trenutno nije dostupan.")
+            } finally {
+                loading.value = false
+            }
+        }
+    }
+
+    /** Otvori Stripe plaćanje za plan; onUrl dobija adresu za browser. */
+    fun renew(planId: Int, onUrl: (String) -> Unit) {
+        val link = Store.link.ifBlank { return }
+        viewModelScope.launch {
+            loading.value = true
+            try { onUrl(Api.renew(link, planId)) } catch (e: Exception) { message.value = e.message } finally { loading.value = false }
+        }
+    }
+
+    // ------------------------------------------------------------ automatski protokol: ako VLESS ne prolazi, probaj Shadowsocks
+    private var fallbackSS = false
+    private fun effectiveProtocol() = if (fallbackSS && protocol.value == "auto") "shadowsocks" else protocol.value
+    private fun watchConnection() {
+        viewModelScope.launch {
+            var n = 0
+            while (status.value != Status.Started && n++ < 100) delay(100)
+            if (status.value != Status.Started || protocol.value != "auto" || fallbackSS) return@launch
+            delay(2500)
+            if (status.value != Status.Started) return@launch
+            val ok = com.veltrix.vpn.data.Diagnostics.vpnWorks() || run { delay(3000); com.veltrix.vpn.data.Diagnostics.vpnWorks() }
+            val server = currentServer()
+            if (!ok && server != null && server.has("shadowsocks")) {
+                fallbackSS = true
+                message.value = t("VLESS is blocked on this network. Switching to Shadowsocks…", "VLESS ne prolazi na ovoj mreži. Prebacujem na Shadowsocks…")
+                reconnect()
+            } else if (!ok) {
+                message.value = t("Connected, but traffic does not pass. Open Account → Connection test.", "Spojeno, ali promet ne prolazi. Otvori Nalog → Dijagnostika veze.")
+            }
+        }
+    }
+
     fun refresh(silent: Boolean = false) {
         val link = Store.link
         if (link.isBlank()) return
@@ -156,6 +206,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun select(id: Int) {
+        fallbackSS = false
         selected.value = id
         Store.selectedServer = id
         if (status.value == Status.Started) reconnect()
@@ -169,6 +220,7 @@ class MainViewModel : ViewModel() {
     }
 
     fun setProtocol(p: String) {
+        fallbackSS = false
         protocol.value = p
         Store.protocol = p
         if (status.value == Status.Started) reconnect()
@@ -208,20 +260,20 @@ class MainViewModel : ViewModel() {
         }
         val server = currentServer()
         if (server == null) { message.value = t("No servers available right now.", "Trenutno nema dostupnih servera."); return false }
-        BoxService.configFile(App.application).writeText(ConfigBuilder.build(server, protocol.value, SecurityOptions.from(acc)))
+        BoxService.configFile(App.application).writeText(ConfigBuilder.build(server, effectiveProtocol(), SecurityOptions.from(acc)))
         Store.selectedNameCache = if (server.isChain) server.name else "${server.flag} ${server.city}"
         return true
     }
 
     fun start() {
-        if (prepare()) BoxService.start(App.application)
+        if (prepare()) { BoxService.start(App.application); watchConnection() }
     }
 
-    fun stop() = BoxService.stop(App.application)
+    fun stop() { fallbackSS = false; BoxService.stop(App.application) }
 
     private fun reconnect() {
         viewModelScope.launch {
-            stop()
+            BoxService.stop(App.application)
             withContext(Dispatchers.Default) {
                 var n = 0
                 while (status.value != Status.Stopped && n++ < 50) delay(100)

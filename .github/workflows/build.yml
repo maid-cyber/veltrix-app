@@ -77,9 +77,24 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      # pravi ključ za potpisivanje (ako je dodan u Settings → Secrets → Actions)
+      - name: Release key
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > $RUNNER_TEMP/release.jks
+            echo "RELEASE_KEYSTORE=$RUNNER_TEMP/release.jks" >> $GITHUB_ENV
+            echo "Potpisujem pravim ključem"
+          else
+            echo "::warning::Nema pravog ključa (ANDROID_KEYSTORE_B64), APK je potpisan probnim ključem"
+          fi
+
       - name: Build APK
         env:
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           BUILD_NUMBER: ${{ github.run_number }}
+          PANEL_URL: ${{ vars.PANEL_URL }}
         run: |
           set -o pipefail
           gradle :app:assembleRelease --no-daemon --console=plain 2>&1 | tee build.log

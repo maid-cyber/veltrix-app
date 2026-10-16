@@ -27,6 +27,8 @@ import androidx.compose.material.icons.outlined.AllInclusive
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.CardMembership
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.History
@@ -143,6 +145,12 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
         // ---------------- račun
         GroupTitle(t("Account", "Račun"))
         SecGroup {
+            if (acc?.renew?.isNotEmpty() == true) {
+                SecRow(Icons.Outlined.CreditCard, t("Renew subscription", "Produži pretplatu"), t("Pay by card, days are added right away", "Plati karticom, dani se dodaju odmah"), trailing = { Chev() }, onClick = { dialog = "renew" })
+            }
+            acc?.ref?.let { r ->
+                SecRow(Icons.Outlined.CardGiftcard, t("Invite a friend", "Pozovi prijatelja"), t("You both get ${r.days} free days", "Obojica dobijete ${r.days} dana gratis"), trailing = { Chev() }, onClick = { dialog = "ref" })
+            }
             SecRow(Icons.Outlined.CardMembership, t("Subscription", "Pretplata"), (acc?.plan?.ifBlank { null } ?: "—") + " · " + statusText(acc?.status), trailing = { Chev() }, onClick = { dialog = "sub" })
             SecRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno"), trailing = { Chev() }, onClick = { onSub("devices") })
             if (f.history) SecRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), trailing = { Chev() }, onClick = { onSub("history") })
@@ -206,6 +214,58 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
             }
             Spacer(Modifier.height(14.dp))
             ToggleLine(t("AMOLED black background", "AMOLED crna pozadina"), Store.amoled) { Store.amoled = it; (ctx as? Activity)?.recreate() }
+            Spacer(Modifier.height(10.dp))
+            Text(t("Language", "Jezik"), color = C.soft, fontSize = 14.sp)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("auto" to t("Phone", "Kao telefon"), "bs" to "Bosanski", "en" to "English").forEach { (k, l) ->
+                    val on = Store.lang == k
+                    Text(
+                        l, color = if (on) Color.White else C.soft, fontSize = 13.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(if (on) C.red else C.card2).clickable { Store.lang = k; (ctx as? Activity)?.recreate() }.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
+            }
+        }
+        "renew" -> Dlg(t("Renew subscription", "Produži pretplatu"), { dialog = "" }) {
+            val a = acc
+            Text(t("Days are added to your current expiry date.", "Dani se dodaju na trenutni datum isteka."), color = C.muted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
+            a?.renew.orEmpty().forEach { p ->
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(12.dp)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(12.dp))
+                        .clickable { vm.renew(p.id) { url -> dialog = ""; runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) } } }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(p.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        Text(t("${p.days} days", "${p.days} dana"), color = C.muted, fontSize = 13.sp)
+                    }
+                    Text(a!!.currencySign + (if (p.price % 1.0 == 0.0) p.price.toInt().toString() else String.format("%.2f", p.price)), color = C.redHi, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text(t("Secure payment by Stripe.", "Sigurno plaćanje preko Stripea."), color = C.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        "ref" -> Dlg(t("Invite a friend", "Pozovi prijatelja"), { dialog = "" }) {
+            val r = acc?.ref
+            if (r != null) {
+                Text(
+                    t("Your friend installs the app, taps \"Try free\" and enters your code. When they pay for the first time, you both get ${r.days} free days.",
+                        "Prijatelj instalira aplikaciju, klikne \"Probaj besplatno\" i upiše tvoj kod. Kad prvi put plati, obojica dobijete ${r.days} dana gratis."),
+                    color = C.soft, fontSize = 14.sp,
+                )
+                Box(Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+                    Text(r.code, color = C.text, fontSize = 30.sp, fontWeight = FontWeight.Black, letterSpacing = 4.sp)
+                }
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(t("Invited: ${r.invited} · rewarded: ${r.rewarded}", "Pozvano: ${r.invited} · nagrađeno: ${r.rewarded}"), color = C.muted, fontSize = 13.sp)
+                }
+                Spacer(Modifier.height(14.dp))
+                BigButton(t("Share", "Podijeli"), null) {
+                    val text = t("Try ${acc?.brand ?: "Veltrix VPN"} free. Enter my code ${r.code} in the app: ", "Probaj ${acc?.brand ?: "Veltrix VPN"} besplatno. U aplikaciji upiši moj kod ${r.code}: ") +
+                        "https://github.com/${BuildConfig.UPDATE_REPO}/releases/latest"
+                    runCatching { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)) }
+                }
+            }
         }
         "sub" -> Dlg(t("Subscription", "Pretplata"), { dialog = "" }) {
             val a = acc

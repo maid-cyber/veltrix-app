@@ -7,6 +7,7 @@ import java.net.HttpURLConnection
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URL
+import org.json.JSONObject
 
 object Api {
     /** Iz bilo čega što kupac zalijepi (link, link sa /app, veltrix://import?url=…) napravi pretplatni link. */
@@ -30,6 +31,34 @@ object Api {
         } finally {
             c.disconnect()
         }
+    }
+
+    private suspend fun postJson(url: String, body: String): Pair<Int, JSONObject> = withContext(Dispatchers.IO) {
+        val c = URL(url).openConnection() as HttpURLConnection
+        c.connectTimeout = 10000; c.readTimeout = 20000
+        c.requestMethod = "POST"; c.doOutput = true
+        c.setRequestProperty("Content-Type", "application/json")
+        c.setRequestProperty("User-Agent", "VeltrixVPN/Android")
+        try {
+            c.outputStream.use { it.write(body.toByteArray()) }
+            val code = c.responseCode
+            val text = (if (code < 400) c.inputStream else c.errorStream)?.bufferedReader()?.use { it.readText() } ?: "{}"
+            code to runCatching { JSONObject(text) }.getOrDefault(JSONObject())
+        } finally { c.disconnect() }
+    }
+
+    /** Probni nalog: vraća pretplatni link ili baca grešku sa porukom panela. */
+    suspend fun trial(device: String, ref: String): String {
+        val (code, j) = postJson("${com.veltrix.vpn.BuildConfig.PANEL_URL}/trial", JSONObject().put("device", device).put("ref", ref).put("app", "android").toString())
+        if (code != 200) throw IllegalStateException(j.optString("error").ifBlank { "HTTP $code" })
+        return j.getString("link")
+    }
+
+    /** Stripe plaćanje za produženje: vraća adresu stranice za plaćanje. */
+    suspend fun renew(link: String, planId: Int): String {
+        val (code, j) = postJson("$link/renew", JSONObject().put("plan_id", planId).toString())
+        if (code != 200) throw IllegalStateException(j.optString("error").ifBlank { "HTTP $code" })
+        return j.getString("url")
     }
 
     /** Ping: vrijeme TCP spajanja na server (ms), -1 ako ne odgovara ni iz 3 pokušaja. */

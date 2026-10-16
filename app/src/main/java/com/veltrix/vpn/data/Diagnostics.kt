@@ -50,6 +50,34 @@ object Diagnostics {
         return out
     }
 
+    /** Test brzine kroz VPN (Cloudflare): preuzimanje 10 MB i slanje 3 MB. Vraća Mbps (-1 = greška). */
+    suspend fun speed(onPhase: (String) -> Unit): Pair<Double, Double> = withContext(Dispatchers.IO) {
+        val proxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress("127.0.0.1", ConfigBuilder.DIAG_PORT))
+        fun mbps(bytes: Long, ns: Long) = if (ns <= 0) -1.0 else bytes * 8.0 / (ns / 1e9) / 1e6
+        onPhase("down")
+        val down = runCatching {
+            val c = URL("https://speed.cloudflare.com/__down?bytes=10000000").openConnection(proxy) as HttpURLConnection
+            c.connectTimeout = 10000; c.readTimeout = 20000
+            val t = System.nanoTime(); var n = 0L
+            c.inputStream.use { val b = ByteArray(64 * 1024); while (true) { val r = it.read(b); if (r < 0) break; n += r } }
+            c.disconnect(); mbps(n, System.nanoTime() - t)
+        }.getOrDefault(-1.0)
+        onPhase("up")
+        val up = runCatching {
+            val data = ByteArray(3_000_000)
+            val c = URL("https://speed.cloudflare.com/__up").openConnection(proxy) as HttpURLConnection
+            c.connectTimeout = 10000; c.readTimeout = 20000; c.requestMethod = "POST"; c.doOutput = true; c.setFixedLengthStreamingMode(data.size)
+            val t = System.nanoTime()
+            c.outputStream.use { it.write(data) }
+            c.responseCode; val ns = System.nanoTime() - t
+            c.disconnect(); mbps(data.size.toLong(), ns)
+        }.getOrDefault(-1.0)
+        down to up
+    }
+
+    /** Radi li promet kroz VPN (za automatski izbor protokola). */
+    suspend fun vpnWorks(): Boolean = viaVpn("http://cp.cloudflare.com/generate_204").first
+
     fun logTail(lines: Int = 80): String = runCatching {
         ConfigBuilder.logFile().readLines().takeLast(lines).joinToString("\n")
     }.getOrDefault("")

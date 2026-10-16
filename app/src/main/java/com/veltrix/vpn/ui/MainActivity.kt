@@ -104,6 +104,12 @@ class MainActivity : ComponentActivity() {
         if (Store.autoConnect && Store.link.isNotBlank() && vm.status.value == Status.Stopped) connect()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // povratak iz browsera poslije plaćanja: osvježi nalog
+        if (vm.loggedIn.value) vm.refresh(silent = true)
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleIntent(intent)
@@ -208,7 +214,7 @@ class MainActivity : ComponentActivity() {
                     sub == "devices" -> DevicesScreen(vm) { sub = "" }
                     sub == "history" -> HistoryScreen(vm) { sub = "" }
                     sub == "diag" -> DiagnosticsScreen(vm) { sub = "" }
-                    tab == 0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 3 })
+                    tab == 0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 3 }, onSpeed = { sub = "diag" })
                     tab == 1 -> LocationsScreen(vm, onPicked = { tab = 0 })
                     tab == 2 -> SecurityScreen(vm, onApps = { sub = "apps" })
                     else -> AccountScreen(vm, onSub = { sub = it })
@@ -279,7 +285,27 @@ class MainActivity : ComponentActivity() {
             } else {
                 BigButton(t("Log in", "Prijavi se"), null, filled = false) { vm.login(input) }
             }
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(26.dp))
+            var showRef by remember { mutableStateOf(false) }
+            var ref by remember { mutableStateOf("") }
+            if (!loading) {
+                BigButton(t("Try free", "Probaj besplatno"), null, filled = true) { vm.trial(ref) }
+                Spacer(Modifier.height(10.dp))
+                if (!showRef) {
+                    Text(t("Have a friend's code?", "Imaš kod prijatelja?"), color = C.redHi, fontSize = 14.sp, modifier = Modifier.clickable { showRef = true }.padding(6.dp))
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().height(50.dp).clip(RoundedCornerShape(14.dp)).background(C.card).border(1.dp, C.line2, RoundedCornerShape(14.dp)).padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.weight(1f)) {
+                            if (ref.isEmpty()) Text(t("Friend's code (optional)", "Kod prijatelja (nije obavezno)"), color = C.muted, fontSize = 15.sp)
+                            BasicTextField(ref, { ref = it.uppercase().take(12) }, singleLine = true, textStyle = TextStyle(color = C.text, fontSize = 15.sp, letterSpacing = 2.sp), cursorBrush = SolidColor(C.red), modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(22.dp))
             Text(
                 t("Don't have an account? Contact the seller you bought from.", "Nemaš nalog? Javi se prodavcu od kojeg kupuješ."),
                 color = C.muted, fontSize = 13.sp, textAlign = TextAlign.Center,

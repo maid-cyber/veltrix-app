@@ -17,10 +17,22 @@ android {
         versionCode = build
         versionName = "0.1.$build"
         buildConfigField("String", "UPDATE_REPO", "\"maid-cyber/veltrix-app\"")
+        // adresa panela za probni nalog (dok nema naloga); mijenja se u GitHub varijabli PANEL_URL
+        buildConfigField("String", "PANEL_URL", "\"${System.getenv("PANEL_URL")?.takeIf { it.isNotBlank() } ?: "http://178.104.237.74"}\"")
     }
 
     signingConfigs {
         // probni ključ (za prave kupce zamijeni ključem iz GitHub tajni)
+        // pravi ključ: dolazi iz GitHub tajni (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD)
+        val ks = System.getenv("RELEASE_KEYSTORE")
+        if (!ks.isNullOrBlank() && file(ks).exists()) {
+            create("release") {
+                storeFile = file(ks)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "veltrix"
+                keyPassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+            }
+        }
         create("test") {
             storeFile = file("veltrix-test.jks")
             storePassword = "veltrix-test"
@@ -32,7 +44,7 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("test")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("test")
         }
         debug {
             signingConfig = signingConfigs.getByName("test")

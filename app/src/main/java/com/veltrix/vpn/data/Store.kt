@@ -87,7 +87,19 @@ object Store {
 
     fun selectedName(context: Context? = null): String = selectedNameCache
 
-    fun bosnian(): Boolean = Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")
+    /** auto | bs | en */
+    var lang: String
+        get() = prefs.getString("lang", "auto") ?: "auto"
+        set(v) = prefs.edit().putString("lang", v).apply()
+    var refCodeInput: String
+        get() = prefs.getString("ref_in", "") ?: ""
+        set(v) = prefs.edit().putString("ref_in", v).apply()
+
+    fun bosnian(): Boolean = when (lang) {
+        "bs" -> true
+        "en" -> false
+        else -> Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")
+    }
 
     fun logout() {
         prefs.edit().remove("link").remove("account").remove("server").remove("server_name").apply()

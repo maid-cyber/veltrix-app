@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
@@ -59,7 +60,7 @@ import com.veltrix.vpn.bg.VpnState
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit, onSettings: () -> Unit) {
+fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit, onSettings: () -> Unit, onSpeed: () -> Unit = {}) {
     val acc by vm.account.collectAsState()
     val status by vm.status.collectAsState()
     val pings by vm.pings.collectAsState()
@@ -144,7 +145,13 @@ fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit,
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        if (on) {
+            Text(
+                t("Test speed →", "Izmjeri brzinu →"), color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(8.dp),
+            )
+        }
+        Spacer(Modifier.height(10.dp))
         Box(Modifier.padding(horizontal = 18.dp)) {
             BigButton(
                 when {

@@ -61,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.veltrix.vpn.data.Store
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.DateFormat
 import java.util.Date
@@ -298,6 +299,27 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
                     val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
                     cm?.setPrimaryClip(android.content.ClipData.newPlainText("Veltrix", text))
                     android.widget.Toast.makeText(ctx, t("Copied", "Kopirano"), android.widget.Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        if (status == com.veltrix.vpn.bg.Status.Started) {
+            var speed by remember { mutableStateOf<String?>(null) }
+            var speedRun by remember { mutableStateOf(false) }
+            val scope = androidx.compose.runtime.rememberCoroutineScope()
+            Card(Modifier.padding(horizontal = 18.dp, vertical = 12.dp).fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(t("Speed test (through VPN)", "Test brzine (kroz VPN)"), color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(speed ?: t("Downloads 10 MB and uploads 3 MB through the VPN.", "Preuzme 10 MB i pošalje 3 MB kroz VPN."), color = C.soft, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp))
+                    BigButton(if (speedRun) t("Testing…", "Mjerim…") else t("Start", "Pokreni"), null, filled = !speedRun) {
+                        if (speedRun) return@BigButton
+                        speedRun = true
+                        scope.launch {
+                            val (d, u) = com.veltrix.vpn.data.Diagnostics.speed { ph -> speed = if (ph == "down") t("Measuring download…", "Mjerim preuzimanje…") else t("Measuring upload…", "Mjerim slanje…") }
+                            fun f(x: Double) = if (x < 0) t("error", "greška") else String.format("%.1f Mbps", x)
+                            speed = "↓ ${f(d)}    ↑ ${f(u)}"
+                            speedRun = false
+                        }
+                    }
                 }
             }
         }

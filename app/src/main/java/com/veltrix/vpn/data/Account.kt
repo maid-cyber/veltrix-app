@@ -42,6 +42,10 @@ data class Features(
 
 data class HistoryItem(val ts: Long, val text: String)
 
+data class RenewPlan(val id: Int, val name: String, val days: Int, val price: Double)
+
+data class RefInfo(val code: String, val days: Int, val invited: Int, val rewarded: Int)
+
 data class Account(
     val brand: String,
     val support: String,
@@ -59,7 +63,13 @@ data class Account(
     val devicesActive: Int = 0,
     val features: Features = Features(),
     val history: List<HistoryItem> = emptyList(),
+    val renew: List<RenewPlan> = emptyList(),
+    val currency: String = "EUR",
+    val ref: RefInfo? = null,
+    val isTrial: Boolean = false,
 ) {
+    val currencySign get() = when (currency) { "USD" -> "$"; "BAM" -> "KM "; "CHF" -> "CHF "; else -> "€" }
+
     companion object {
         fun parse(json: String): Account {
             val o = JSONObject(json)
@@ -89,6 +99,10 @@ data class Account(
                         history = f.optBoolean("history", true), dnsFilters = f.optJSONArray("dns_filters").strings(),
                     )
                 } ?: Features(),
+                renew = o.optJSONArray("renew")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { x -> RenewPlan(x.optInt("id"), x.optString("name"), x.optInt("days"), x.optDouble("price")) } } } ?: emptyList(),
+                currency = o.optString("currency", "EUR"),
+                ref = o.optJSONObject("ref")?.let { RefInfo(it.optString("code"), it.optInt("days", 7), it.optInt("invited"), it.optInt("rewarded")) },
+                isTrial = o.optBoolean("trial"),
                 history = o.optJSONArray("history")?.let { h -> (0 until h.length()).map { h.getJSONObject(it).let { x -> HistoryItem(x.optLong("ts"), x.optString("text")) } } } ?: emptyList(),
             )
         }

@@ -77,22 +77,23 @@ jobs:
               print('::error::' + '%0A'.join(l.replace('%', '%25') for l in lines[i:i+15]))
           PY
 
-      - name: Require administrator (VPN adapter)
+      - name: Check app files
         shell: pwsh
         run: |
-          $mt = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin" -Recurse -Filter mt.exe | Where-Object { $_.FullName -match '\\x64\\' } | Sort-Object FullName -Descending | Select-Object -First 1
-          $exe = "windows/build/compose/binaries/main/app/VeltrixVPN/VeltrixVPN.exe"
-          & $mt.FullName -nologo -manifest windows/packaging/admin.manifest "-outputresource:$exe;#1"
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-          Get-ChildItem windows/build/compose/binaries/main/app/VeltrixVPN/app/resources
+          $d = "windows/build/compose/binaries/main/app/VeltrixVPN"
+          Get-ChildItem $d | ForEach-Object { Write-Host $_.Name }
+          $sb = Get-ChildItem $d -Recurse -Filter sing-box.exe | Select-Object -First 1
+          if (!$sb) { Write-Host "::error::sing-box.exe nije u paketu aplikacije"; exit 1 }
+          Write-Host "sing-box: $($sb.FullName)"
 
       - name: Installer
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
-          & $iscc /Qp "/DMyVersion=1.0.${{ github.run_number }}" windows/packaging/installer.iss
-          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $out = & $iscc /Qp "/DMyVersion=1.0.${{ github.run_number }}" windows/packaging/installer.iss 2>&1
+          $out | Write-Host
+          if ($LASTEXITCODE -ne 0) { Write-Host ("::error::" + (($out | Select-Object -Last 15) -join '%0A')); exit 1 }
 
       - name: Release
         uses: softprops/action-gh-release@v2

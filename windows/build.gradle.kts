@@ -25,11 +25,13 @@ val genDir = layout.buildDirectory.dir("generated/buildinfo")
 val genInfo by tasks.registering {
     val out = genDir
     inputs.property("build", build)
+    inputs.property("panel", System.getenv("PANEL_URL") ?: "")
     outputs.dir(out)
     doLast {
         val f = out.get().file("com/veltrix/desktop/BuildInfo.kt").asFile
         f.parentFile.mkdirs()
-        f.writeText("package com.veltrix.desktop\n\nobject BuildInfo {\n    const val BUILD = $build\n    const val VERSION = \"1.0.$build\"\n    const val UPDATE_REPO = \"maid-cyber/veltrix-app\"\n}\n")
+        val panel = System.getenv("PANEL_URL")?.takeIf { it.isNotBlank() } ?: "http://178.104.237.74"
+        f.writeText("package com.veltrix.desktop\n\nobject BuildInfo {\n    const val BUILD = $build\n    const val VERSION = \"1.0.$build\"\n    const val UPDATE_REPO = \"maid-cyber/veltrix-app\"\n    const val PANEL_URL = \"$panel\"\n}\n")
     }
 }
 sourceSets["main"].kotlin.srcDir(genDir)

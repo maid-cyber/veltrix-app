@@ -63,6 +63,54 @@ class AppState(private val demo: Account? = null) {
         }
     }
 
+    fun trial(ref: String) {
+        scope.launch {
+            loading.value = true
+            try {
+                val link = Api.trial(ref.trim())
+                loading.value = false
+                login(link)
+            } catch (e: Exception) {
+                message.value = e.message ?: t("Trial is not available.", "Probni nalog trenutno nije dostupan.")
+            } finally { loading.value = false }
+        }
+    }
+
+    fun renew(planId: Int) {
+        val link = Store.link.ifBlank { return }
+        scope.launch {
+            loading.value = true
+            try {
+                openUrl(Api.renew(link, planId))
+                message.value = t("Finish the payment in your browser, then come back.", "Završi plaćanje u browseru i vrati se ovdje.")
+                // poslije plaćanja: osvježi nalog par puta
+                repeat(6) { delay(20_000); refresh(silent = true) }
+            } catch (e: Exception) { message.value = e.message } finally { loading.value = false }
+        }
+    }
+
+    // automatski protokol: ako VLESS ne prolazi, probaj Shadowsocks
+    private var fallbackSS = false
+    private fun effectiveProtocol() = if (fallbackSS && protocol.value == "auto") "shadowsocks" else protocol.value
+    private fun watchConnection() {
+        scope.launch {
+            var n = 0
+            while (status.value != Status.Started && n++ < 150) delay(100)
+            if (status.value != Status.Started || protocol.value != "auto" || fallbackSS) return@launch
+            delay(2000)
+            val ok = Api.vpnWorks() || run { delay(3000); Api.vpnWorks() }
+            val server = currentServer()
+            val hasSS = server != null && (0 until server.outbounds.length()).any { server.outbounds.getJSONObject(it).optString("type") == "shadowsocks" }
+            if (!ok && hasSS) {
+                fallbackSS = true
+                message.value = t("VLESS is blocked on this network. Switching to Shadowsocks…", "VLESS ne prolazi na ovoj mreži. Prebacujem na Shadowsocks…")
+                reconnectIfOn()
+            } else if (!ok) {
+                message.value = t("Connected, but traffic does not pass. See Diagnostics.", "Spojeno, ali promet ne prolazi. Pogledaj Dijagnostiku.")
+            }
+        }
+    }
+
     fun refresh(silent: Boolean = false) {
         val link = Store.link.ifBlank { return }
         scope.launch {
@@ -109,10 +157,12 @@ class AppState(private val demo: Account? = null) {
         }
         val server = currentServer() ?: return run { message.value = t("No servers available.", "Trenutno nema dostupnih servera.") }
         val s = SecurityOptions.from(acc)
-        Core.start { secret -> ConfigBuilder.build(server, protocol.value, s, secret) }
+        val proto = effectiveProtocol()
+        Core.start { secret -> ConfigBuilder.build(server, proto, s, secret) }
+        watchConnection()
     }
 
-    fun disconnect() = Core.stop()
+    fun disconnect() { fallbackSS = false; Core.stop() }
     fun toggle() = when (status.value) { Status.Started -> disconnect(); Status.Stopped -> connect(); else -> {} }
 
     private fun reconnectIfOn() {
@@ -125,9 +175,9 @@ class AppState(private val demo: Account? = null) {
         }
     }
 
-    fun select(id: Int) { selected.value = id; Store.selectedServer = id; reconnectIfOn() }
+    fun select(id: Int) { fallbackSS = false; selected.value = id; Store.selectedServer = id; reconnectIfOn() }
     fun toggleFavorite(id: Int) { val f = favorites.value.toMutableSet(); if (!f.add(id)) f.remove(id); favorites.value = f; Store.favorites = f }
-    fun setProtocol(p: String) { protocol.value = p; Store.protocol = p; reconnectIfOn() }
+    fun setProtocol(p: String) { fallbackSS = false; protocol.value = p; Store.protocol = p; reconnectIfOn() }
     fun setAutoConnect(v: Boolean) { autoConnect.value = v; Store.autoConnect = v }
     fun setReconnect(v: Boolean) { reconnectOn.value = v; Store.reconnect = v }
     private fun secChanged() { sec.value = SecurityOptions.from(account.value); reconnectIfOn() }

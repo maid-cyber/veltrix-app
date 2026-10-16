@@ -35,7 +35,23 @@ object Store {
     var splitOn: Boolean get() = bool("split_on", false); set(v) = setBool("split_on", v)
     var accent: String get() = str("accent", "crvena"); set(v) = setStr("accent", v)
 
-    fun bosnian(): Boolean = Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")
+    /** auto | bs | en */
+    var lang: String get() = str("lang", "auto"); set(v) = setStr("lang", v)
+
+    fun bosnian(): Boolean = when (lang) {
+        "bs" -> true
+        "en" -> false
+        else -> Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")
+    }
+
+    /** Stalni ID ovog računara (heš), za probni nalog. */
+    val deviceId: String by lazy {
+        val guid = runCatching {
+            val p = ProcessBuilder("reg", "query", "HKLM\\SOFTWARE\\Microsoft\\Cryptography", "/v", "MachineGuid").redirectErrorStream(true).start()
+            Regex("MachineGuid\\s+REG_SZ\\s+(\\S+)").find(p.inputStream.bufferedReader().readText())?.groupValues?.get(1)
+        }.getOrNull() ?: str("dev_id").ifBlank { java.util.UUID.randomUUID().toString().also { setStr("dev_id", it) } }
+        "w-" + java.security.MessageDigest.getInstance("SHA-256").digest("veltrix:$guid".toByteArray()).joinToString("") { "%02x".format(it) }.take(40)
+    }
 
     fun logout() {
         listOf("link", "account", "server").forEach { p.remove(it) }

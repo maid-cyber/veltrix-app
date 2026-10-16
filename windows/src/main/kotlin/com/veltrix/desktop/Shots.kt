@@ -22,6 +22,7 @@ fun main(args: Array<String>) {
             srv(100001, "Njemačka → Švicarska", "Zurich", "CH", kind = "double", hops = listOf("DE" to "Falkenstein", "CH" to "Zurich")),
         ),
         devicesActive = 1, history = listOf(HistoryItem(System.currentTimeMillis() - 86_400_000, "Produžen · Premium 30 dana")),
+        renew = listOf(RenewPlan(2, "Premium 30 dana", 30, 5.0), RenewPlan(3, "Premium 90 dana", 90, 12.0)), ref = RefInfo("K7M2QX9P", 7, 3, 1),
     )
     val st = AppState(demo)
     st.pings.value = mapOf(1 to 28, 2 to 41, 3 to 55, 4 to 112, 100001 to 63)

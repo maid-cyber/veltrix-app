@@ -41,6 +41,9 @@ import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.CardMembership
+import androidx.compose.material.icons.outlined.CardGiftcard
+import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.ContentPaste
@@ -75,6 +78,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -172,7 +177,7 @@ private fun Shell(state: AppState, startTab: Int) {
         Box(Modifier.width(1.dp).fillMaxHeight().background(C.line))
         Box(Modifier.weight(1f).fillMaxHeight().padding(horizontal = 34.dp, vertical = 26.dp)) {
             when (tab) {
-                0 -> HomeScreen(state) { tab = 1 }
+                0 -> HomeScreen(state, onLocations = { tab = 1 }, onSpeed = { tab = 4 })
                 1 -> LocationsScreen(state) { tab = 0 }
                 2 -> SecurityScreen(state)
                 3 -> AccountScreen(state)
@@ -226,6 +231,18 @@ private fun LoginScreen(state: AppState) {
                 Spacer(Modifier.height(14.dp))
                 if (loading) CircularProgressIndicator(color = C.red) else BigButton(t("Log in", "Prijavi se"), null) { state.login(input) }
                 Spacer(Modifier.height(18.dp))
+                var ref by remember { mutableStateOf("") }
+                var showRef by remember { mutableStateOf(false) }
+                if (!loading) {
+                    BigButton(t("Try free", "Probaj besplatno"), null, filled = false) { state.trial(ref) }
+                    Spacer(Modifier.height(8.dp))
+                    if (!showRef) Text(t("Have a friend's code?", "Imaš kod prijatelja?"), color = C.redHi, fontSize = 13.sp, modifier = Modifier.clickable { showRef = true }.padding(6.dp))
+                    else Box(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(12.dp)).background(C.bg).border(1.dp, C.line2, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
+                        if (ref.isEmpty()) Text(t("Friend's code (optional)", "Kod prijatelja (nije obavezno)"), color = C.muted, fontSize = 14.sp)
+                        BasicTextField(ref, { ref = it.uppercase().take(12) }, singleLine = true, textStyle = TextStyle(color = C.text, fontSize = 14.sp, letterSpacing = 2.sp), cursorBrush = SolidColor(C.red), modifier = Modifier.fillMaxWidth())
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
                 Text(t("Don't have an account? Contact the seller you bought from.", "Nemaš nalog? Javi se prodavcu od kojeg kupuješ."), color = C.muted, fontSize = 12.sp, textAlign = TextAlign.Center)
             }
         }
@@ -234,7 +251,7 @@ private fun LoginScreen(state: AppState) {
 
 // ================================================================== početna
 @Composable
-private fun HomeScreen(state: AppState, onLocations: () -> Unit) {
+private fun HomeScreen(state: AppState, onLocations: () -> Unit, onSpeed: () -> Unit = {}) {
     val acc by state.account.collectAsState()
     val status by state.status.collectAsState()
     val pings by state.pings.collectAsState()
@@ -293,7 +310,8 @@ private fun HomeScreen(state: AppState, onLocations: () -> Unit) {
                     Stat(Icons.Outlined.ArrowUpward, t("Upload", "Slanje"), u.first, u.second, Modifier.weight(1f))
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            if (on) Text(t("Test speed →", "Izmjeri brzinu →"), color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(8.dp))
+            Spacer(Modifier.height(10.dp))
             BigButton(when { on -> t("Disconnect", "Prekini vezu"); busy -> t("Please wait…", "Sačekaj…"); else -> t("Connect", "Spoji se") }, Icons.Outlined.PowerSettingsNew) { state.toggle() }
             acc?.announce?.takeIf { it.isNotBlank() }?.let {
                 Spacer(Modifier.height(12.dp))
@@ -499,6 +517,7 @@ private fun AccountScreen(state: AppState) {
     val upd by state.update.collectAsState()
     val df = remember { DateFormat.getDateInstance(DateFormat.MEDIUM) }
     var showHistory by remember { mutableStateOf(false) }
+    var showRenew by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wide = maxWidth > 900.dp
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -529,6 +548,13 @@ private fun AccountScreen(state: AppState) {
                                 state.setProtocol(when (protocol) { "auto" -> "vless"; "vless" -> "shadowsocks"; else -> "auto" })
                             }) { Text(t("change", "promijeni"), color = C.redHi, fontSize = 13.sp) }
                             SetSwitch(Icons.Outlined.Autorenew, t("Connect on start", "Spoji pri pokretanju"), t("Connects when the app opens", "Spoji se čim otvoriš aplikaciju"), auto) { state.setAutoConnect(it) }
+                            SetRow(Icons.Outlined.Language, t("Language", "Jezik"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja")) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf("auto" to "Auto", "bs" to "BS", "en" to "EN").forEach { (k, l) ->
+                                        Text(l, color = if (Store.lang == k) Color.White else C.soft, fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (Store.lang == k) C.red else C.card2).clickable { Store.lang = k; state.message.value = t("Restart the app to change the language.", "Ponovo pokreni aplikaciju da se promijeni jezik.") }.padding(horizontal = 10.dp, vertical = 5.dp))
+                                    }
+                                }
+                            }
                             SetRow(Icons.Outlined.Palette, t("Accent color", "Boja akcenta"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja"), last = true) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ACCENTS.forEach { (k, c) ->
@@ -546,6 +572,8 @@ private fun AccountScreen(state: AppState) {
                     Card(Modifier.fillMaxWidth()) {
                         Column {
                             SetRow(Icons.Outlined.CardMembership, t("Subscription", "Pretplata"), (acc?.plan?.ifBlank { null } ?: "—") + " · " + statusText(acc?.status))
+                            if (acc?.renew?.isNotEmpty() == true) SetRow(Icons.Outlined.CreditCard, t("Renew subscription", "Produži pretplatu"), t("Pay by card, days are added right away", "Plati karticom, dani se dodaju odmah"), onClick = { showRenew = !showRenew }) { Icon(Icons.Outlined.ChevronRight, null, tint = C.muted) }
+                            acc?.ref?.let { r -> SetRow(Icons.Outlined.CardGiftcard, t("Invite a friend", "Pozovi prijatelja"), t("Your code ${r.code} · both get ${r.days} free days", "Tvoj kod ${r.code} · obojica ${r.days} dana gratis"), onClick = { copyText(r.code); state.message.value = t("Code copied", "Kod kopiran") }) { Text(t("copy", "kopiraj"), color = C.redHi, fontSize = 13.sp) } }
                             SetRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected now", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno sada"))
                             if (acc?.features?.history != false) SetRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), onClick = { showHistory = !showHistory }) { Icon(Icons.Outlined.ChevronRight, null, tint = C.muted) }
                             val support = acc?.support.orEmpty()
@@ -566,6 +594,21 @@ private fun AccountScreen(state: AppState) {
                 }
             } else {
                 settings(); Spacer(Modifier.height(18.dp)); account()
+            }
+            if (showRenew) {
+                Spacer(Modifier.height(18.dp))
+                Text(t("Choose a plan", "Izaberi plan"), color = C.soft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    acc?.renew.orEmpty().forEach { p ->
+                        Card(Modifier.weight(1f), onClick = { state.renew(p.id) }) {
+                            Column(Modifier.padding(16.dp)) {
+                                Text(p.name, color = C.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                Text(t("${p.days} days", "${p.days} dana"), color = C.muted, fontSize = 13.sp)
+                                Text(acc!!.currencySign + (if (p.price % 1.0 == 0.0) p.price.toInt().toString() else String.format("%.2f", p.price)), color = C.redHi, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp))
+                            }
+                        }
+                    }
+                }
             }
             if (showHistory) {
                 Spacer(Modifier.height(18.dp))
@@ -604,8 +647,24 @@ private fun DiagnosticsScreen(state: AppState) {
         Title(t("Diagnostics", "Dijagnostika"), t("Status: ", "Stanje: ") + status.name)
         Card(Modifier.fillMaxWidth()) { Text(test ?: t("Testing…", "Testiram…"), color = C.text, fontSize = 14.sp, modifier = Modifier.padding(16.dp)) }
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        var speed by remember { mutableStateOf<String?>(null) }
+        var speedRun by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false, modifier = Modifier.width(200.dp)) { copyText((test ?: "") + "\n\n" + log) }
+            if (status == Status.Started) {
+                BigButton(if (speedRun) t("Testing…", "Mjerim…") else t("Speed test", "Test brzine"), null, filled = !speedRun, modifier = Modifier.width(200.dp)) {
+                    if (speedRun) return@BigButton
+                    speedRun = true
+                    scope.launch {
+                        val (d, u) = Api.speed { ph -> speed = if (ph == "down") t("Measuring download…", "Mjerim preuzimanje…") else t("Measuring upload…", "Mjerim slanje…") }
+                        fun f(x: Double) = if (x < 0) t("error", "greška") else String.format("%.1f Mbps", x)
+                        speed = "↓ ${f(d)}    ↑ ${f(u)}"
+                        speedRun = false
+                    }
+                }
+                speed?.let { Text(it, color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+            }
         }
         Spacer(Modifier.height(12.dp))
         Card(Modifier.fillMaxWidth().weight(1f)) {

@@ -26,6 +26,7 @@ data class SecurityOptions(
 /** sing-box konfiguracija za Windows (isti princip kao Android aplikacija). */
 object ConfigBuilder {
     const val API_PORT = 9097
+    const val DIAG_PORT = 10809
 
     fun outboundFor(server: Server, protocol: String): JSONObject {
         val list = (0 until server.outbounds.length()).map { server.outbounds.getJSONObject(it) }
@@ -56,7 +57,8 @@ object ConfigBuilder {
         return JSONObject()
             .put("log", JSONObject().put("level", "info").put("timestamp", true))
             .put("dns", JSONObject().put("servers", JSONArray().put(remoteDns).put(JSONObject().put("type", "local").put("tag", "local"))).put("final", "remote").put("strategy", "ipv4_only"))
-            .put("inbounds", JSONArray().put(tun))
+            // lokalni proxy samo za test brzine i provjeru veze (sluša samo na 127.0.0.1)
+            .put("inbounds", JSONArray().put(tun).put(JSONObject().put("type", "mixed").put("tag", "diag-in").put("listen", "127.0.0.1").put("listen_port", DIAG_PORT)))
             .put("outbounds", JSONArray().put(outboundFor(server, protocol)).put(JSONObject().put("type", "direct").put("tag", "direct")))
             .put("route", JSONObject().put("rules", rules).put("final", "proxy").put("auto_detect_interface", true).put("default_domain_resolver", "local"))
             // samo za brzinu i provjeru da motor radi (sluša samo na 127.0.0.1, sa tajnom)

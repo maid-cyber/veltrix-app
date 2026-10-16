@@ -32,6 +32,12 @@
       "auto_route": true,
       "strict_route": true,
       "stack": "mixed"
+    },
+    {
+      "type": "mixed",
+      "tag": "diag-in",
+      "listen": "127.0.0.1",
+      "listen_port": 10809
     }
   ],
   "outbounds": [

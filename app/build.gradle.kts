@@ -12,8 +12,11 @@ android {
         applicationId = "com.veltrix.vpn"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.1.0"
+        // broj builda sa GitHuba (svaki novi build ima veći broj, po njemu aplikacija zna da postoji novija verzija)
+        val build = (System.getenv("BUILD_NUMBER") ?: "1").toInt()
+        versionCode = build
+        versionName = "0.1.$build"
+        buildConfigField("String", "UPDATE_REPO", "\"maid-cyber/veltrix-app\"")
     }
 
     signingConfigs {

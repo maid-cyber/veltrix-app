@@ -146,7 +146,12 @@ fun AccountScreen(vm: MainViewModel) {
                     if (url != null) runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 },
             )
-            Item(Icons.Outlined.Info, t("Version ", "Verzija ") + BuildConfig.VERSION_NAME + " · sing-box (GPLv3)")
+            val upd by vm.update.collectAsState()
+            Item(
+                Icons.Outlined.Info,
+                t("Version ", "Verzija ") + BuildConfig.VERSION_NAME + (upd?.let { t(" · update ", " · nova ") + it.version } ?: ""),
+                onClick = { if (upd != null) vm.updateDismissed.value = false else vm.checkUpdate(manual = true) },
+            )
             Item(Icons.AutoMirrored.Outlined.Logout, t("Log out", "Odjava"), danger = true, last = true, onClick = { logoutDialog = true })
         }
         Spacer(Modifier.height(24.dp))

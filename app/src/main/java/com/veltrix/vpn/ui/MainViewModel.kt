@@ -13,6 +13,8 @@ import com.veltrix.vpn.data.Api
 import com.veltrix.vpn.data.ConfigBuilder
 import com.veltrix.vpn.data.Server
 import com.veltrix.vpn.data.Store
+import com.veltrix.vpn.data.UpdateInfo
+import com.veltrix.vpn.data.Updater
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,8 +37,13 @@ class MainViewModel : ViewModel() {
     val speed = MutableStateFlow(Speed())
     val status: StateFlow<Status> = VpnState.status
     val error: StateFlow<String?> = VpnState.error
+    val update = MutableStateFlow<UpdateInfo?>(null)
+    val updateDismissed = MutableStateFlow(false)
+    /** null = ne skida se; 0..1 = napredak skidanja */
+    val updateProgress = MutableStateFlow<Float?>(null)
 
     init {
+        checkUpdate()
         if (loggedIn.value) refresh(silent = true)
         // brzina: bajtovi koje je aplikacija (VPN motor) prenijela u zadnjoj sekundi
         viewModelScope.launch {
@@ -192,6 +199,38 @@ class MainViewModel : ViewModel() {
                 while (status.value != Status.Stopped && n++ < 50) delay(100)
             }
             start()
+        }
+    }
+
+    // ------------------------------------------------------------ ažuriranje aplikacije
+    fun checkUpdate(manual: Boolean = false) {
+        viewModelScope.launch {
+            val u = runCatching { Updater.check() }.getOrNull()
+            update.value = u
+            if (u != null) updateDismissed.value = false
+            if (manual && u == null) message.value = t("You have the latest version.", "Imaš najnoviju verziju.")
+        }
+    }
+
+    fun installUpdate() {
+        val u = update.value ?: return
+        val ctx = App.application
+        if (!Updater.canInstall(ctx)) {
+            message.value = t("Allow installing updates for Veltrix VPN, then tap Update again.", "Dozvoli instaliranje za Veltrix VPN, pa ponovo klikni Ažuriraj.")
+            Updater.openInstallPermission(ctx)
+            return
+        }
+        if (updateProgress.value != null) return
+        viewModelScope.launch {
+            updateProgress.value = 0f
+            try {
+                val f = Updater.download(ctx, u) { p -> updateProgress.value = p }
+                Updater.install(ctx, f)
+            } catch (e: Exception) {
+                message.value = t("Update download failed: ", "Skidanje nove verzije nije uspjelo: ") + e.message
+            } finally {
+                updateProgress.value = null
+            }
         }
     }
 

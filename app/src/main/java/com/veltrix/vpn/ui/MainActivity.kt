@@ -42,7 +42,11 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -71,6 +75,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
+import com.veltrix.vpn.BuildConfig
 import com.veltrix.vpn.bg.Status
 import com.veltrix.vpn.data.Store
 
@@ -149,7 +154,43 @@ class MainActivity : ComponentActivity() {
             ),
         ) {
             if (!loggedIn) LoginScreen() else MainTabs()
+            UpdateDialog()
         }
+    }
+
+    @Composable
+    private fun UpdateDialog() {
+        val u by vm.update.collectAsState()
+        val dismissed by vm.updateDismissed.collectAsState()
+        val progress by vm.updateProgress.collectAsState()
+        val info = u ?: return
+        if (dismissed && progress == null) return
+        AlertDialog(
+            onDismissRequest = { if (progress == null) vm.updateDismissed.value = true },
+            containerColor = C.card,
+            icon = { Icon(Icons.Outlined.SystemUpdate, null, tint = C.red) },
+            title = { Text(t("New version available", "Nova verzija je dostupna"), color = C.text) },
+            text = {
+                Column {
+                    Text("${BuildConfig.VERSION_NAME}  →  ${info.version}", color = C.soft, fontSize = 15.sp)
+                    info.notes.takeIf { it.isNotBlank() }?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = C.muted, fontSize = 13.sp)
+                    }
+                    progress?.let { p ->
+                        Spacer(Modifier.height(16.dp))
+                        LinearProgressIndicator(progress = { p }, color = C.red, trackColor = C.line2, modifier = Modifier.fillMaxWidth())
+                        Text(t("Downloading… ", "Skidanje… ") + "${(p * 100).toInt()}%", color = C.soft, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                if (progress == null) TextButton({ vm.installUpdate() }) { Text(t("Update", "Ažuriraj"), color = C.red, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                if (progress == null) TextButton({ vm.updateDismissed.value = true }) { Text(t("Later", "Kasnije"), color = C.soft) }
+            },
+        )
     }
 
     @Composable

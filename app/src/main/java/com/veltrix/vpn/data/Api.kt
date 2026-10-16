@@ -32,14 +32,18 @@ object Api {
         }
     }
 
-    /** Ping: vrijeme TCP spajanja na server (ms), -1 ako ne odgovara. */
+    /** Ping: vrijeme TCP spajanja na server (ms), -1 ako ne odgovara ni iz 3 pokušaja. */
     suspend fun ping(host: String, port: Int): Int = withContext(Dispatchers.IO) {
-        runCatching {
-            Socket().use { s ->
-                val t = System.nanoTime()
-                s.connect(InetSocketAddress(host, port), 2500)
-                ((System.nanoTime() - t) / 1_000_000).toInt().coerceAtLeast(1)
-            }
-        }.getOrDefault(-1)
+        repeat(3) { n ->
+            val ms = runCatching {
+                Socket().use { s ->
+                    val t = System.nanoTime()
+                    s.connect(InetSocketAddress(host, port), if (n == 0) 3000 else 5000)
+                    ((System.nanoTime() - t) / 1_000_000).toInt().coerceAtLeast(1)
+                }
+            }.onFailure { android.util.Log.w("Veltrix", "ping $host:$port", it) }.getOrNull()
+            if (ms != null) return@withContext ms
+        }
+        -1
     }
 }

@@ -1,0 +1,235 @@
+package com.veltrix.vpn.ui
+
+import android.Manifest
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.VpnService
+import android.os.Build
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
+import com.veltrix.vpn.bg.Status
+import com.veltrix.vpn.data.Store
+
+class MainActivity : ComponentActivity() {
+    private val vm: MainViewModel by viewModels()
+
+    private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (VpnService.prepare(this) == null) vm.start()
+        else toast(t("VPN permission is required to connect.", "Za spajanje treba dozvola za VPN."))
+    }
+    private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    private val scan = registerForActivityResult(ScanContract()) { r -> r.contents?.let { vm.login(it) } }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        handleIntent(intent)
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme(primary = C.red, background = C.bg, surface = C.card)) {
+                Root()
+            }
+        }
+        if (Store.autoConnect && Store.link.isNotBlank() && vm.status.value == Status.Stopped) connect()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    // veltrix://import?url=… (dugme na stranici kupca)
+    private fun handleIntent(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme == "veltrix") vm.login(data.toString())
+    }
+
+    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()
+
+    fun connect() {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (!vm.prepare()) return
+        val intent = VpnService.prepare(this)
+        if (intent != null) vpnPermission.launch(intent) else vm.start()
+    }
+
+    fun toggle() {
+        when (vm.status.value) {
+            Status.Started -> vm.stop()
+            Status.Stopped -> connect()
+            else -> {}
+        }
+    }
+
+    fun scanQr() {
+        scan.launch(
+            ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE).setBeepEnabled(false).setOrientationLocked(true)
+                .setPrompt(t("Scan the QR code from your account page", "Skeniraj QR kod sa stranice svog naloga")),
+        )
+    }
+
+    fun pasteText(): String = (getSystemService(CLIPBOARD_SERVICE) as ClipboardManager).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString().orEmpty()
+
+    @Composable
+    private fun Root() {
+        val loggedIn by vm.loggedIn.collectAsState()
+        val msg by vm.message.collectAsState()
+        val err by vm.error.collectAsState()
+        LaunchedEffect(msg) { msg?.let { toast(it); vm.message.value = null } }
+        LaunchedEffect(err) { err?.let { toast(t("Connection failed: ", "Spajanje nije uspjelo: ") + it) } }
+
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.radialGradient(listOf(Color(0xFF3A0A12), C.bg), radius = 1400f),
+            ),
+        ) {
+            if (!loggedIn) LoginScreen() else MainTabs()
+        }
+    }
+
+    @Composable
+    private fun MainTabs() {
+        var tab by remember { mutableIntStateOf(0) }
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Box(Modifier.weight(1f)) {
+                when (tab) {
+                    0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 2 })
+                    1 -> LocationsScreen(vm, onPicked = { tab = 0 })
+                    else -> AccountScreen(vm)
+                }
+            }
+            Row(Modifier.fillMaxWidth().background(Color(0xFF0E0E13)).padding(top = 6.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                NavItem(t("Home", "Početna"), Icons.Filled.Home, Icons.Outlined.Home, tab == 0) { tab = 0 }
+                NavItem(t("Locations", "Lokacije"), Icons.Filled.LocationOn, Icons.Outlined.LocationOn, tab == 1) { tab = 1 }
+                NavItem(t("Account", "Nalog"), Icons.Filled.Person, Icons.Outlined.Person, tab == 2) { tab = 2 }
+            }
+        }
+    }
+
+    @Composable
+    private fun NavItem(label: String, on: ImageVector, off: ImageVector, selected: Boolean, onClick: () -> Unit) {
+        Column(
+            Modifier.width(96.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(if (selected) on else off, null, tint = if (selected) C.red else C.muted, modifier = Modifier.size(26.dp))
+            Text(label, color = if (selected) C.red else C.muted, fontSize = 13.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+            Box(Modifier.padding(top = 4.dp).width(44.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(if (selected) C.red else Color.Transparent))
+        }
+    }
+
+    @Composable
+    private fun LoginScreen() {
+        val loading by vm.loading.collectAsState()
+        var input by remember { mutableStateOf("") }
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(Modifier.height(48.dp))
+            Logo(110.dp)
+            Spacer(Modifier.height(20.dp))
+            Text("VELTRIX", color = C.text, fontSize = 36.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+            Text("V P N", color = C.redHi, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
+            Spacer(Modifier.height(28.dp))
+            Text(
+                t("Scan the QR code or paste the access link you received after purchase.", "Skeniraj QR kod ili zalijepi pristupni link koji si dobio nakon kupovine."),
+                color = C.soft, fontSize = 15.sp, textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(24.dp))
+            BigButton(t("Scan QR code", "Skeniraj QR kod"), Icons.Outlined.QrCodeScanner) { scanQr() }
+            Spacer(Modifier.height(18.dp))
+            Text(t("or", "ili"), color = C.muted, fontSize = 14.sp)
+            Spacer(Modifier.height(18.dp))
+            Row(
+                Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(14.dp)).background(C.card)
+                    .border(1.dp, C.line2, RoundedCornerShape(14.dp)).padding(start = 16.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.weight(1f)) {
+                    if (input.isEmpty()) Text(t("Access link (https://…/s/…)", "Pristupni link (https://…/s/…)"), color = C.muted, fontSize = 15.sp)
+                    BasicTextField(input, { input = it }, singleLine = true, textStyle = TextStyle(color = C.text, fontSize = 15.sp), cursorBrush = SolidColor(C.red), modifier = Modifier.fillMaxWidth())
+                }
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).clickable { input = pasteText() }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.ContentPaste, t("Paste", "Zalijepi"), tint = C.soft)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            if (loading) {
+                CircularProgressIndicator(color = C.red)
+            } else {
+                BigButton(t("Log in", "Prijavi se"), null, filled = false) { vm.login(input) }
+            }
+            Spacer(Modifier.height(32.dp))
+            Text(
+                t("Don't have an account? Contact the seller you bought from.", "Nemaš nalog? Javi se prodavcu od kojeg kupuješ."),
+                color = C.muted, fontSize = 13.sp, textAlign = TextAlign.Center,
+            )
+        }
+    }
+}

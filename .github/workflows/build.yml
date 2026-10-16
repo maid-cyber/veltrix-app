@@ -1,0 +1,95 @@
+name: Build APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SING_BOX_VERSION: v1.13.21
+  LIBBOX_TAGS: with_gvisor,with_quic,with_utls,with_clash_api,badlinkname,tfogo_checklinkname0
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # ista konfiguracija koju pravi aplikacija (ConfigBuilder.kt) mora proći provjeru pravog sing-boxa
+      - name: Check sing-box config
+        run: |
+          V=${SING_BOX_VERSION#v}
+          curl -fsSL -o sb.tgz https://github.com/SagerNet/sing-box/releases/download/$SING_BOX_VERSION/sing-box-$V-linux-amd64.tar.gz
+          tar xzf sb.tgz
+          ./sing-box-$V-linux-amd64/sing-box check -c ci/config-vless.json
+          ./sing-box-$V-linux-amd64/sing-box check -c ci/config-ss.json
+          echo "Konfiguracija ispravna"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # VPN motor (sing-box libbox) se gradi iz izvornog koda i čuva u kešu
+      - name: Cache libbox
+        id: libbox
+        uses: actions/cache@v4
+        with:
+          path: app/libs/libbox.aar
+          key: libbox-${{ env.SING_BOX_VERSION }}-${{ env.LIBBOX_TAGS }}-v1
+
+      - uses: actions/setup-go@v5
+        if: steps.libbox.outputs.cache-hit != 'true'
+        with:
+          go-version: '1.24.7'
+          cache: false
+
+      - name: Build libbox
+        if: steps.libbox.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.0.13004108" > /dev/null
+          export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/28.0.13004108
+          go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.12
+          go install github.com/sagernet/gomobile/cmd/gobind@v0.1.12
+          export PATH=$PATH:$(go env GOPATH)/bin
+          git clone --depth 1 --branch $SING_BOX_VERSION https://github.com/SagerNet/sing-box /tmp/sing-box
+          cd /tmp/sing-box
+          gomobile bind -v -o libbox.aar -target android/arm64,android/arm,android/amd64 -androidapi 23 \
+            -javapkg=io.nekohasekai -libname=box -trimpath -buildvcs=false \
+            -ldflags "-X github.com/sagernet/sing-box/constant.Version=${SING_BOX_VERSION#v} -X internal/godebug.defaultGODEBUG=multipathtcp=0 -s -w -buildid= -checklinkname=0" \
+            -tags "$LIBBOX_TAGS" ./experimental/libbox
+          mkdir -p $GITHUB_WORKSPACE/app/libs
+          cp libbox.aar $GITHUB_WORKSPACE/app/libs/
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build APK
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Rename APK
+        run: |
+          VER=$(grep -oP 'versionName = "\K[^"]+' app/build.gradle.kts)
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/Veltrix-VPN-$VER-${{ github.run_number }}.apk
+          echo "VER=$VER" >> $GITHUB_ENV
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Veltrix-VPN-APK
+          path: out/*.apk
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: Veltrix VPN ${{ env.VER }} (build ${{ github.run_number }})
+          body: Probna verzija za testiranje. Instaliraj APK na Android telefon.
+          files: out/*.apk
+          prerelease: true

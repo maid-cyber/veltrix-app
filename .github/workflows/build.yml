@@ -102,6 +102,7 @@ jobs:
           mkdir -p out
           cp app/build/outputs/apk/release/app-release.apk out/Veltrix-VPN-$VER.apk
           echo "VER=$VER" >> $GITHUB_ENV
+          echo "NOTES=$(git log -1 --format=%s | tr -d '\r')" >> $GITHUB_ENV
 
       - uses: actions/upload-artifact@v4
         with:
@@ -113,6 +114,6 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: Veltrix VPN ${{ env.VER }} (build ${{ github.run_number }})
-          body: ${{ github.event.head_commit.message || 'Nova verzija' }}
+          body: ${{ env.NOTES }}
           files: out/*.apk
           prerelease: true

@@ -37,6 +37,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.outlined.Shield
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.LocationOn
@@ -150,7 +153,7 @@ class MainActivity : ComponentActivity() {
 
         Box(
             Modifier.fillMaxSize().background(
-                Brush.radialGradient(listOf(Color(0xFF3A0A12), C.bg), radius = 1400f),
+                Brush.radialGradient(listOf(C.red.copy(alpha = .22f), C.bg), radius = 1400f),
             ),
         ) {
             if (!loggedIn) LoginScreen() else MainTabs()
@@ -196,18 +199,27 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun MainTabs() {
         var tab by remember { mutableIntStateOf(0) }
+        var sub by remember { mutableStateOf("") }
+        BackHandler(enabled = sub.isNotEmpty() || tab != 0) { if (sub.isNotEmpty()) sub = "" else tab = 0 }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Box(Modifier.weight(1f)) {
-                when (tab) {
-                    0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 2 })
-                    1 -> LocationsScreen(vm, onPicked = { tab = 0 })
-                    else -> AccountScreen(vm)
+                when {
+                    sub == "apps" -> AppsScreen(vm) { sub = "" }
+                    sub == "devices" -> DevicesScreen(vm) { sub = "" }
+                    sub == "history" -> HistoryScreen(vm) { sub = "" }
+                    tab == 0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 3 })
+                    tab == 1 -> LocationsScreen(vm, onPicked = { tab = 0 })
+                    tab == 2 -> SecurityScreen(vm, onApps = { sub = "apps" })
+                    else -> AccountScreen(vm, onSub = { sub = it })
                 }
             }
-            Row(Modifier.fillMaxWidth().background(Color(0xFF0E0E13)).padding(top = 6.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-                NavItem(t("Home", "Početna"), Icons.Filled.Home, Icons.Outlined.Home, tab == 0) { tab = 0 }
-                NavItem(t("Locations", "Lokacije"), Icons.Filled.LocationOn, Icons.Outlined.LocationOn, tab == 1) { tab = 1 }
-                NavItem(t("Account", "Nalog"), Icons.Filled.Person, Icons.Outlined.Person, tab == 2) { tab = 2 }
+            if (sub.isEmpty()) {
+                Row(Modifier.fillMaxWidth().background(if (com.veltrix.vpn.data.Store.amoled) Color.Black else Color(0xFF0E0E13)).padding(top = 6.dp, bottom = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    NavItem(t("Home", "Početna"), Icons.Filled.Home, Icons.Outlined.Home, tab == 0) { tab = 0 }
+                    NavItem(t("Locations", "Lokacije"), Icons.Filled.LocationOn, Icons.Outlined.LocationOn, tab == 1) { tab = 1 }
+                    NavItem(t("Security", "Sigurnost"), Icons.Filled.Shield, Icons.Outlined.Shield, tab == 2) { tab = 2 }
+                    NavItem(t("Account", "Nalog"), Icons.Filled.Person, Icons.Outlined.Person, tab == 3) { tab = 3 }
+                }
             }
         }
     }
@@ -215,7 +227,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun NavItem(label: String, on: ImageVector, off: ImageVector, selected: Boolean, onClick: () -> Unit) {
         Column(
-            Modifier.width(96.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
+            Modifier.width(84.dp).clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(if (selected) on else off, null, tint = if (selected) C.red else C.muted, modifier = Modifier.size(26.dp))

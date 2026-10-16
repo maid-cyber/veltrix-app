@@ -1,10 +1,12 @@
 package com.veltrix.vpn.ui
 
+import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,17 +22,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.AllInclusive
-import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.outlined.CardMembership
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Devices
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.SupportAgent
+import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -47,24 +54,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.veltrix.vpn.BuildConfig
+import com.veltrix.vpn.data.Store
 import java.text.DateFormat
 import java.util.Date
 
 @Composable
-fun AccountScreen(vm: MainViewModel) {
+fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
     val acc by vm.account.collectAsState()
     val protocol by vm.protocol.collectAsState()
     val auto by vm.autoConnect.collectAsState()
+    val boot by vm.bootConnect.collectAsState()
+    val nDrop by vm.notifyDrop.collectAsState()
+    val nExp by vm.notifyExpiry.collectAsState()
+    val upd by vm.update.collectAsState()
     val ctx = LocalContext.current
-    var protoDialog by remember { mutableStateOf(false) }
-    var logoutDialog by remember { mutableStateOf(false) }
+    var dialog by remember { mutableStateOf("") }
     val df = DateFormat.getDateInstance(DateFormat.MEDIUM)
+    val f = acc?.features ?: com.veltrix.vpn.data.Features()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         TopBar(acc?.brand ?: "Veltrix VPN", Icons.Outlined.Refresh) { vm.refresh() }
@@ -91,115 +102,175 @@ fun AccountScreen(vm: MainViewModel) {
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
                     Text((acc?.plan?.ifBlank { null } ?: "Premium").uppercase(), color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    val st = acc?.status
-                    Text(
-                        when (st) {
-                            "active", "expiring" -> t("Active VPN access", "VPN pristup aktivan")
-                            "grace" -> t("Expired, grace period", "Istekao, grace period")
-                            "expired" -> t("Expired", "Istekao")
-                            "limited" -> t("Data limit used up", "Potrošen promet")
-                            "devices" -> t("Too many devices", "Previše uređaja")
-                            else -> t("Disabled", "Ugašen")
-                        },
-                        color = if (acc?.canConnect == true) C.green else C.redHi, fontSize = 15.sp,
-                    )
-                    acc?.expiresAt?.let {
+                    Text(statusText(acc?.status), color = if (acc?.canConnect == true) C.green else C.redHi, fontSize = 15.sp)
+                    acc?.expiresAt?.takeIf { it > 0 }?.let {
                         Text(t("Valid until ", "Vrijedi do ") + df.format(Date(it)), color = C.soft, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
             }
         }
         Spacer(Modifier.height(14.dp))
-
-        // detalji
-        Group {
+        SecGroup {
             val used = acc?.trafficUsed ?: 0
             val limit = acc?.trafficLimit ?: 0
-            Item(Icons.Outlined.AllInclusive, if (limit > 0) t("Data: ", "Promet: ") + "${fmtBytes(used)} / ${fmtBytes(limit)}" else t("Unlimited bandwidth", "Neograničen promet"))
-            Item(Icons.Outlined.Devices, t("${acc?.devices ?: 1} devices", "${acc?.devices ?: 1} uređaja"))
-            Item(Icons.Outlined.Public, t("${acc?.servers?.size ?: 0} locations", "${acc?.servers?.size ?: 0} lokacija"), last = true)
+            SecRow(Icons.Outlined.AllInclusive, if (limit > 0) t("Data", "Promet") else t("Unlimited bandwidth", "Neograničen promet"), if (limit > 0) "${fmtBytes(used)} / ${fmtBytes(limit)}" else fmtBytes(used) + t(" used", " potrošeno"))
+            SecRow(Icons.Outlined.Public, t("${acc?.servers?.count { !it.isChain } ?: 0} locations", "${acc?.servers?.count { !it.isChain } ?: 0} lokacija"), t("Switch anytime in Locations", "Mijenjaš kad hoćeš u Lokacijama"), last = true)
         }
-        Spacer(Modifier.height(14.dp))
 
-        // postavke
-        Group {
-            Item(
-                Icons.Outlined.Shield, t("Protocol: ", "Protokol: ") + when (protocol) { "vless" -> "VLESS Reality"; "shadowsocks" -> "Shadowsocks"; else -> t("Automatic", "Automatski") },
-                onClick = { protoDialog = true },
+        // ---------------- podešavanja
+        GroupTitle(t("Settings", "Podešavanja"))
+        SecGroup {
+            SecRow(
+                Icons.Outlined.VpnKey, t("VPN protocol", "VPN protokol"),
+                when (protocol) { "vless" -> "VLESS Reality"; "shadowsocks" -> "Shadowsocks 2022"; else -> t("Automatic (recommended)", "Automatski (preporučeno)") },
+                trailing = { Chev() }, onClick = { dialog = "proto" },
             )
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Bolt, null, tint = C.soft, modifier = Modifier.size(24.dp))
-                Spacer(Modifier.width(16.dp))
-                Text(t("Auto-connect on app start", "Automatski spoji pri otvaranju"), color = C.text, fontSize = 16.sp, modifier = Modifier.weight(1f))
-                Switch(auto, { vm.setAutoConnect(it) }, colors = SwitchDefaults.colors(checkedTrackColor = C.red, checkedThumbColor = Color.White))
-            }
-            Divider()
+            SecRow(
+                Icons.Outlined.Autorenew, t("Auto-connect", "Automatsko povezivanje"),
+                listOfNotNull(if (auto) t("on app start", "pri otvaranju") else null, if (boot && f.boot) t("on phone start", "pri paljenju telefona") else null).joinToString(", ").ifBlank { t("Off", "Isključeno") },
+                trailing = { Chev() }, onClick = { dialog = "auto" },
+            )
+            if (f.split) SecRow(Icons.Outlined.Apps, t("App management", "Upravljanje aplikacijama"), t("Choose apps that bypass the VPN", "Izaberi aplikacije koje idu mimo VPN-a"), trailing = { Chev() }, onClick = { onSub("apps") })
+            SecRow(Icons.Outlined.Palette, t("Appearance", "Izgled aplikacije"), accentName(Store.accent) + if (Store.amoled) " · AMOLED" else "", trailing = { Chev() }, onClick = { dialog = "look" })
+            SecRow(
+                Icons.Outlined.Notifications, t("Notifications", "Obavijesti"),
+                listOfNotNull(if (nDrop) t("disconnects", "prekid veze") else null, if (nExp) t("expiry", "istek pretplate") else null).joinToString(", ").ifBlank { t("Off", "Isključene") },
+                trailing = { Chev() }, onClick = { dialog = "notif" }, last = true,
+            )
+        }
+
+        // ---------------- račun
+        GroupTitle(t("Account", "Račun"))
+        SecGroup {
+            SecRow(Icons.Outlined.CardMembership, t("Subscription", "Pretplata"), (acc?.plan?.ifBlank { null } ?: "—") + " · " + statusText(acc?.status), trailing = { Chev() }, onClick = { dialog = "sub" })
+            SecRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno"), trailing = { Chev() }, onClick = { onSub("devices") })
+            if (f.history) SecRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), trailing = { Chev() }, onClick = { onSub("history") })
             val support = acc?.support.orEmpty()
-            Item(
-                Icons.AutoMirrored.Outlined.HelpOutline, t("Help & Support", "Pomoć i podrška") + if (support.isNotBlank()) " · $support" else "",
+            SecRow(
+                Icons.Outlined.SupportAgent, t("Help & Support", "Podrška"), support.ifBlank { t("Contact your seller", "Javi se prodavcu") },
+                trailing = { Chev() }, last = true,
                 onClick = {
+                    val m = Regex("@([A-Za-z0-9_]{4,})").find(support)
                     val url = when {
                         support.startsWith("http") -> support
-                        Regex("@([A-Za-z0-9_]{4,})").find(support) != null -> "https://t.me/" + Regex("@([A-Za-z0-9_]{4,})").find(support)!!.groupValues[1]
+                        m != null -> "https://t.me/" + m.groupValues[1]
                         else -> null
                     }
                     if (url != null) runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 },
             )
-            val upd by vm.update.collectAsState()
-            Item(
-                Icons.Outlined.Info,
-                t("Version ", "Verzija ") + BuildConfig.VERSION_NAME + (upd?.let { t(" · update ", " · nova ") + it.version } ?: ""),
+        }
+        Spacer(Modifier.height(14.dp))
+        SecGroup {
+            SecRow(
+                Icons.Outlined.Info, t("Version ", "Verzija ") + BuildConfig.VERSION_NAME,
+                upd?.let { t("Update available: ", "Dostupna nova: ") + it.version } ?: "sing-box · GPLv3",
+                trailing = { Chev() },
                 onClick = { if (upd != null) vm.updateDismissed.value = false else vm.checkUpdate(manual = true) },
             )
-            Item(Icons.AutoMirrored.Outlined.Logout, t("Log out", "Odjava"), danger = true, last = true, onClick = { logoutDialog = true })
+            SecRow(Icons.AutoMirrored.Outlined.Logout, t("Log out", "Odjava"), t("You will need your link or QR code again", "Za ponovnu prijavu treba link ili QR kod"), last = true, onClick = { dialog = "logout" })
         }
         Spacer(Modifier.height(24.dp))
     }
 
-    if (protoDialog) {
-        AlertDialog(
-            onDismissRequest = { protoDialog = false },
-            containerColor = C.card,
-            title = { Text(t("Protocol", "Protokol"), color = C.text) },
-            text = {
-                Column {
-                    listOf("auto" to t("Automatic (recommended)", "Automatski (preporučeno)"), "vless" to "VLESS Reality", "shadowsocks" to "Shadowsocks 2022").forEach { (k, l) ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { vm.setProtocol(k); protoDialog = false }.padding(12.dp)) {
-                            Text(l, color = if (protocol == k) C.red else C.text, fontSize = 16.sp, fontWeight = if (protocol == k) FontWeight.Bold else FontWeight.Normal)
-                        }
-                    }
+    when (dialog) {
+        "proto" -> Dlg(t("VPN protocol", "VPN protokol"), { dialog = "" }) {
+            listOf("auto" to t("Automatic (recommended)", "Automatski (preporučeno)"), "vless" to "VLESS Reality", "shadowsocks" to "Shadowsocks 2022").forEach { (k, l) ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { vm.setProtocol(k); dialog = "" }.padding(12.dp)) {
+                    Text(l, color = if (protocol == k) C.red else C.text, fontSize = 16.sp, fontWeight = if (protocol == k) FontWeight.Bold else FontWeight.Normal)
                 }
-            },
-            confirmButton = { TextButton({ protoDialog = false }) { Text(t("Close", "Zatvori"), color = C.soft) } },
-        )
-    }
-    if (logoutDialog) {
-        AlertDialog(
-            onDismissRequest = { logoutDialog = false },
+            }
+        }
+        "auto" -> Dlg(t("Auto-connect", "Automatsko povezivanje"), { dialog = "" }) {
+            ToggleLine(t("When the app opens", "Kad otvorim aplikaciju"), auto) { vm.setAutoConnect(it) }
+            if (f.boot) ToggleLine(t("When the phone starts", "Kad se telefon upali"), boot) { vm.setBoot(it) }
+            Text(t("For always-on protection use Kill Switch in Security.", "Za stalnu zaštitu koristi Kill Switch u Sigurnosti."), color = C.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+        }
+        "notif" -> Dlg(t("Notifications", "Obavijesti"), { dialog = "" }) {
+            ToggleLine(t("When the VPN disconnects", "Kad se VPN prekine"), nDrop) { vm.setNotifyDrop(it) }
+            ToggleLine(t("3 days before expiry", "3 dana prije isteka pretplate"), nExp) { vm.setNotifyExpiry(it) }
+        }
+        "look" -> Dlg(t("Appearance", "Izgled aplikacije"), { dialog = "" }) {
+            Text(t("Accent color", "Boja akcenta"), color = C.soft, fontSize = 14.sp)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ACCENTS.forEach { (k, c) ->
+                    Box(
+                        Modifier.size(44.dp).clip(CircleShape).background(c.first)
+                            .border(3.dp, if (Store.accent == k) Color.White else Color.Transparent, CircleShape)
+                            .clickable { Store.accent = k; (ctx as? Activity)?.recreate() },
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            ToggleLine(t("AMOLED black background", "AMOLED crna pozadina"), Store.amoled) { Store.amoled = it; (ctx as? Activity)?.recreate() }
+        }
+        "sub" -> Dlg(t("Subscription", "Pretplata"), { dialog = "" }) {
+            val a = acc
+            KV(t("Plan", "Plan"), a?.plan?.ifBlank { null } ?: "—")
+            KV(t("Status", "Status"), statusText(a?.status))
+            KV(t("Valid until", "Vrijedi do"), a?.expiresAt?.takeIf { it > 0 }?.let { df.format(Date(it)) } ?: "—")
+            KV(t("Data", "Promet"), if ((a?.trafficLimit ?: 0) > 0) "${fmtBytes(a!!.trafficUsed)} / ${fmtBytes(a.trafficLimit)}" else fmtBytes(a?.trafficUsed ?: 0) + " / ∞")
+            KV(t("Devices", "Uređaji"), "${a?.devices ?: 1}")
+            Text(t("To renew, contact your seller.", "Za produženje se javi prodavcu."), color = C.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp))
+        }
+        "logout" -> AlertDialog(
+            onDismissRequest = { dialog = "" },
             containerColor = C.card,
             title = { Text(t("Log out?", "Odjaviti se?"), color = C.text) },
             text = { Text(t("You will need your access link or QR code to log in again.", "Za ponovnu prijavu trebat će ti pristupni link ili QR kod."), color = C.soft) },
-            confirmButton = { TextButton({ logoutDialog = false; vm.logout() }) { Text(t("Log out", "Odjava"), color = C.red) } },
-            dismissButton = { TextButton({ logoutDialog = false }) { Text(t("Cancel", "Odustani"), color = C.soft) } },
+            confirmButton = { TextButton({ dialog = ""; vm.logout() }) { Text(t("Log out", "Odjava"), color = C.red) } },
+            dismissButton = { TextButton({ dialog = "" }) { Text(t("Cancel", "Odustani"), color = C.soft) } },
         )
     }
 }
 
-@Composable
-private fun Group(content: @Composable () -> Unit) {
-    Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth()) { Column { content() } }
+fun statusText(st: String?) = when (st) {
+    "active", "expiring" -> t("Active VPN access", "VPN pristup aktivan")
+    "grace" -> t("Expired, grace period", "Istekao, grace period")
+    "expired" -> t("Expired", "Istekao")
+    "limited" -> t("Data limit used up", "Potrošen promet")
+    "devices" -> t("Too many devices", "Previše uređaja")
+    null -> "—"
+    else -> t("Disabled", "Ugašen")
+}
+
+private fun accentName(k: String) = when (k) {
+    "plava" -> t("Blue", "Plava"); "zelena" -> t("Green", "Zelena"); "ljubicasta" -> t("Purple", "Ljubičasta"); else -> t("Red", "Crvena")
 }
 
 @Composable
-private fun Item(icon: ImageVector, text: String, danger: Boolean = false, last: Boolean = false, onClick: (() -> Unit)? = null) {
-    var m = Modifier.fillMaxWidth()
-    if (onClick != null) m = m.clickable(onClick = onClick)
-    Row(m.padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = if (danger) C.red else C.red.copy(alpha = .9f), modifier = Modifier.size(24.dp))
-        Spacer(Modifier.width(16.dp))
-        Text(text, color = if (danger) C.redHi else C.text, fontSize = 16.sp, modifier = Modifier.weight(1f))
-        if (onClick != null) Icon(Icons.Outlined.ChevronRight, null, tint = C.muted)
+private fun Chev() = Icon(Icons.Outlined.ChevronRight, null, tint = C.muted)
+
+@Composable
+private fun GroupTitle(text: String) {
+    Text(text, color = C.soft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 22.dp, top = 22.dp, bottom = 8.dp))
+}
+
+@Composable
+private fun Dlg(title: String, onClose: () -> Unit, content: @Composable () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onClose,
+        containerColor = C.card,
+        title = { Text(title, color = C.text) },
+        text = { Column { content() } },
+        confirmButton = { TextButton(onClose) { Text(t("Close", "Zatvori"), color = C.soft) } },
+    )
+}
+
+@Composable
+private fun ToggleLine(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
+    var v by remember(on) { mutableStateOf(on) }
+    Row(Modifier.fillMaxWidth().clickable { v = !v; onChange(v) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = C.text, fontSize = 15.sp, modifier = Modifier.weight(1f))
+        Switch(v, { v = it; onChange(it) }, colors = SwitchDefaults.colors(checkedTrackColor = C.red, checkedThumbColor = Color.White))
     }
-    if (!last) Box(Modifier.padding(start = 56.dp)) { Divider() }
+}
+
+@Composable
+private fun KV(k: String, v: String) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+        Text(k, color = C.muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        Text(v, color = C.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+    }
 }

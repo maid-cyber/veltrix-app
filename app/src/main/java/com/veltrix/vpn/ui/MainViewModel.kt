@@ -11,6 +11,8 @@ import com.veltrix.vpn.bg.VpnState
 import com.veltrix.vpn.data.Account
 import com.veltrix.vpn.data.Api
 import com.veltrix.vpn.data.ConfigBuilder
+import com.veltrix.vpn.data.Notifier
+import com.veltrix.vpn.data.SecurityOptions
 import com.veltrix.vpn.data.Server
 import com.veltrix.vpn.data.Store
 import com.veltrix.vpn.data.UpdateInfo
@@ -37,6 +39,13 @@ class MainViewModel : ViewModel() {
     val speed = MutableStateFlow(Speed())
     val status: StateFlow<Status> = VpnState.status
     val error: StateFlow<String?> = VpnState.error
+    val sec = MutableStateFlow(SecurityOptions.from(account.value))
+    val splitOn = MutableStateFlow(Store.splitOn)
+    val bootConnect = MutableStateFlow(Store.bootConnect)
+    val notifyDrop = MutableStateFlow(Store.notifyDrop)
+    val notifyExpiry = MutableStateFlow(Store.notifyExpiry)
+    val alwaysOn: StateFlow<Boolean> = VpnState.alwaysOn
+    val lockdown: StateFlow<Boolean> = VpnState.lockdown
     val update = MutableStateFlow<UpdateInfo?>(null)
     val updateDismissed = MutableStateFlow(false)
     /** null = ne skida se; 0..1 = napredak skidanja */
@@ -82,6 +91,7 @@ class MainViewModel : ViewModel() {
                 Store.link = link
                 Store.accountJson = json
                 account.value = acc
+                sec.value = SecurityOptions.from(acc)
                 loggedIn.value = true
                 message.value = null
                 pingAll()
@@ -106,7 +116,10 @@ class MainViewModel : ViewModel() {
             try {
                 val json = Api.fetch(link)
                 Store.accountJson = json
-                account.value = Account.parse(json)
+                val acc = Account.parse(json)
+                account.value = acc
+                sec.value = SecurityOptions.from(acc)
+                Notifier.expiry(App.application, acc)
                 pingAll()
             } catch (e: Exception) {
                 if (e.message == "not_found") {
@@ -138,7 +151,8 @@ class MainViewModel : ViewModel() {
         if (list.isEmpty()) return null
         list.firstOrNull { it.id == selected.value }?.let { return it }
         val p = pings.value
-        return list.filter { (p[it.id] ?: 9999) >= 0 }.minByOrNull { p[it.id] ?: 9999 } ?: list.first()
+        val plain = list.filter { !it.isChain }.ifEmpty { list }
+        return plain.filter { (p[it.id] ?: 9999) >= 0 }.minByOrNull { p[it.id] ?: 9999 } ?: plain.first()
     }
 
     fun select(id: Int) {
@@ -160,6 +174,20 @@ class MainViewModel : ViewModel() {
         if (status.value == Status.Started) reconnect()
     }
 
+    // ------------------------------------------------------------ sigurnost (promjena odmah ponovo spoji)
+    private fun secChanged() {
+        sec.value = SecurityOptions.from(account.value)
+        if (status.value == Status.Started) reconnect()
+    }
+    fun setDns(v: Boolean) { Store.dnsProtect = v; secChanged() }
+    fun setIpLeak(v: Boolean) { Store.ipLeak = v; secChanged() }
+    fun setWebrtc(v: Boolean) { Store.webrtc = v; secChanged() }
+    fun setSplitOn(v: Boolean) { Store.splitOn = v; splitOn.value = v; secChanged() }
+    fun setSplitApps(apps: Set<String>) { Store.splitApps = apps; secChanged() }
+    fun setBoot(v: Boolean) { Store.bootConnect = v; bootConnect.value = v }
+    fun setNotifyDrop(v: Boolean) { Store.notifyDrop = v; notifyDrop.value = v }
+    fun setNotifyExpiry(v: Boolean) { Store.notifyExpiry = v; notifyExpiry.value = v }
+
     fun setAutoConnect(v: Boolean) {
         autoConnect.value = v
         Store.autoConnect = v
@@ -180,8 +208,8 @@ class MainViewModel : ViewModel() {
         }
         val server = currentServer()
         if (server == null) { message.value = t("No servers available right now.", "Trenutno nema dostupnih servera."); return false }
-        BoxService.configFile(App.application).writeText(ConfigBuilder.build(server, protocol.value))
-        Store.selectedNameCache = "${server.flag} ${server.city}"
+        BoxService.configFile(App.application).writeText(ConfigBuilder.build(server, protocol.value, SecurityOptions.from(acc)))
+        Store.selectedNameCache = if (server.isChain) server.name else "${server.flag} ${server.city}"
         return true
     }
 

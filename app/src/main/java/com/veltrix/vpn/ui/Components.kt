@@ -36,15 +36,24 @@ import androidx.compose.ui.unit.sp
 import com.veltrix.vpn.data.Store
 
 // ---------------------------------------------------------------- boje
+/** boje akcenta: glavna, tamna, svijetla */
+val ACCENTS = linkedMapOf(
+    "crvena" to Triple(Color(0xFFE3172B), Color(0xFF9E0C1A), Color(0xFFFF4A5A)),
+    "plava" to Triple(Color(0xFF2F6BFF), Color(0xFF1A3FA8), Color(0xFF6B9BFF)),
+    "zelena" to Triple(Color(0xFF1FB36B), Color(0xFF0D6B3F), Color(0xFF5FE0A0)),
+    "ljubicasta" to Triple(Color(0xFF8A4DFF), Color(0xFF4C22A3), Color(0xFFB68CFF)),
+)
+
 object C {
-    val bg = Color(0xFF0B0B0F)
+    private val acc get() = ACCENTS[Store.accent] ?: ACCENTS.getValue("crvena")
+    val bg get() = if (Store.amoled) Color.Black else Color(0xFF0B0B0F)
     val card = Color(0xFF15151B)
     val card2 = Color(0xFF1B1B22)
     val line = Color(0xFF2A1A1E)
     val line2 = Color(0xFF34343F)
-    val red = Color(0xFFE3172B)
-    val redDark = Color(0xFF9E0C1A)
-    val redHi = Color(0xFFFF4A5A)
+    val red get() = acc.first
+    val redDark get() = acc.second
+    val redHi get() = acc.third
     val text = Color(0xFFF4F4F6)
     val soft = Color(0xFFC7C7D1)
     val muted = Color(0xFF9A9AA8)
@@ -121,7 +130,7 @@ fun Flag(emoji: String, size: Dp = 44.dp) {
 fun Card(modifier: Modifier = Modifier, glow: Boolean = false, onClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     var m = modifier.clip(shape)
-        .background(if (glow) Brush.linearGradient(listOf(Color(0xFF2A0E14), C.card)) else Brush.linearGradient(listOf(C.card, C.card)))
+        .background(if (glow) Brush.linearGradient(listOf(C.red.copy(alpha = .16f), C.card)) else Brush.linearGradient(listOf(C.card, C.card)))
         .border(1.dp, if (glow) C.red.copy(alpha = .55f) else C.line, shape)
     if (onClick != null) m = m.clickable(onClick = onClick)
     Box(m) { content() }
@@ -160,7 +169,7 @@ fun BigButton(text: String, icon: ImageVector?, filled: Boolean = true, onClick:
     val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier.fillMaxWidth().height(56.dp).clip(shape)
-            .background(if (filled) Brush.verticalGradient(listOf(Color(0xFFE3172B), Color(0xFFB0101F))) else Brush.verticalGradient(listOf(C.card, C.card)))
+            .background(if (filled) Brush.verticalGradient(listOf(C.red, C.redDark)) else Brush.verticalGradient(listOf(C.card, C.card)))
             .border(1.dp, if (filled) C.redHi.copy(alpha = .6f) else C.line2, shape)
             .clickable(onClick = onClick),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,

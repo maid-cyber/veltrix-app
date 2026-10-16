@@ -104,10 +104,10 @@ fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit,
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (vm.selected.value == -1) t("Fastest server", "Najbrži server") else server?.countryName ?: "—", color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (vm.selected.value == -1) t("Fastest server", "Najbrži server") else if (server?.isChain == true) server.name else server?.countryName ?: "—", color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                         Icon(Icons.Outlined.ChevronRight, null, tint = C.red, modifier = Modifier.size(20.dp))
                     }
-                    Text(server?.let { "${it.countryName} · ${it.city}" } ?: t("No server", "Nema servera"), color = C.muted, fontSize = 14.sp)
+                    Text(server?.let { if (it.isChain) it.route else "${it.countryName} · ${it.city}" } ?: t("No server", "Nema servera"), color = C.muted, fontSize = 14.sp)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                         PingDot(server?.let { pings[it.id] })
                         val ms = server?.let { pings[it.id] }

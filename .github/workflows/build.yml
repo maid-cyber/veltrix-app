@@ -25,8 +25,7 @@ jobs:
           V=${SING_BOX_VERSION#v}
           curl -fsSL -o sb.tgz https://github.com/SagerNet/sing-box/releases/download/$SING_BOX_VERSION/sing-box-$V-linux-amd64.tar.gz
           tar xzf sb.tgz
-          ./sing-box-$V-linux-amd64/sing-box check -c ci/config-vless.json
-          ./sing-box-$V-linux-amd64/sing-box check -c ci/config-ss.json
+          for f in ci/config-*.json; do echo "$f"; ./sing-box-$V-linux-amd64/sing-box check -c "$f"; done
           echo "Konfiguracija ispravna"
 
       - uses: actions/setup-java@v4

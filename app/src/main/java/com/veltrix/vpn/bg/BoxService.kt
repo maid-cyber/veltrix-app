@@ -40,6 +40,10 @@ object VpnState {
     val status = MutableStateFlow(Status.Stopped)
     val error = MutableStateFlow<String?>(null)
     @Volatile var connectedAt = 0L
+    val alwaysOn = MutableStateFlow(false)
+    val lockdown = MutableStateFlow(false)
+    /** kupac je sam prekinuo vezu (tad nema obavještenja o prekidu) */
+    @Volatile var userStopped = false
 }
 
 class BoxService(private val service: Service, private val platformInterface: PlatformInterface) : CommandServerHandler {
@@ -55,6 +59,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
         }
 
         fun stop(context: Context) {
+            VpnState.userStopped = true
             context.sendBroadcast(Intent(ACTION_STOP).setPackage(context.packageName))
         }
     }
@@ -97,6 +102,12 @@ class BoxService(private val service: Service, private val platformInterface: Pl
     @OptIn(DelicateCoroutinesApi::class)
     fun onStartCommand(): Int {
         if (VpnState.status.value != Status.Stopped) return Service.START_NOT_STICKY
+        // "Uvijek uključen VPN" ili paljenje telefona pokrene servis bez aplikacije: napravi konfiguraciju ako je nema
+        if (!configFile(service).exists() && !com.veltrix.vpn.data.Connector.writeConfig(service)) {
+            service.stopSelf()
+            return Service.START_NOT_STICKY
+        }
+        VpnState.userStopped = false
         VpnState.status.value = Status.Starting
         VpnState.error.value = null
         showForeground(if (Store.bosnian()) "Spajanje…" else "Connecting…")
@@ -127,6 +138,7 @@ class BoxService(private val service: Service, private val platformInterface: Pl
 
     private suspend fun fail(message: String) {
         VpnState.error.value = message
+        com.veltrix.vpn.data.Notifier.dropped(service, message)
         cleanup()
         withContext(Dispatchers.Main) { finish() }
     }
@@ -164,11 +176,15 @@ class BoxService(private val service: Service, private val platformInterface: Pl
         }
     }
 
-    fun onRevoke() = stopService()
+    fun onRevoke() {
+        if (!VpnState.userStopped) com.veltrix.vpn.data.Notifier.dropped(service, null)
+        stopService()
+    }
     fun onDestroy() {}
 
     // ---- CommandServerHandler
     override fun serviceStop() {
+        if (!VpnState.userStopped) com.veltrix.vpn.data.Notifier.dropped(service, null)
         stopService()
     }
 

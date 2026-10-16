@@ -81,15 +81,25 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 }
             }
 
-            // sama aplikacija (ping, provjera naloga) ide mimo tunela
-            try {
-                builder.addDisallowedApplication(packageName)
-            } catch (e: NameNotFoundException) {
-                Log.e("VPNService", "addDisallowedApplication", e)
+            // sama aplikacija (ping, provjera naloga) ide mimo tunela, i aplikacije koje je kupac izabrao (split tunneling)
+            val excluded = mutableListOf(packageName)
+            val ex = options.excludePackage
+            while (ex.hasNext()) excluded.add(ex.next())
+            for (pkg in excluded.distinct()) {
+                try {
+                    builder.addDisallowedApplication(pkg)
+                } catch (e: NameNotFoundException) {
+                    Log.w("VPNService", "addDisallowedApplication $pkg", e)
+                }
             }
         }
 
         val pfd = builder.establish() ?: error("android: the application is not prepared or is revoked")
+        // Kill Switch = Androidov "Uvijek uključen VPN" + "Blokiraj veze bez VPN-a"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            VpnState.alwaysOn.value = isAlwaysOn
+            VpnState.lockdown.value = isLockdownEnabled
+        }
         service.fileDescriptor = pfd
         return pfd.fd
     }

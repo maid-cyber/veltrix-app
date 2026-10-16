@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -53,13 +55,26 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
     val favs by vm.favorites.collectAsState()
     val selected by vm.selected.collectAsState()
     var query by remember { mutableStateOf("") }
-    var tab by remember { mutableStateOf(0) }   // 0 svi, 1 omiljeni
+    var cat by remember { mutableStateOf("all") }
 
     val all = acc?.servers.orEmpty()
+    // kategorije: prikazuju se samo one koje imaju bar jedan server
+    val cats = listOf(
+        "all" to t("All", "Svi"), "fav" to t("Favorites", "Omiljeni"), "p2p" to "P2P / Torrent", "streaming" to "Streaming",
+        "gaming" to "Gaming", "double" to "Double VPN", "multihop" to "Multihop", "special" to t("Special", "Specijalni"),
+    ).filter { (k, _) -> k == "all" || k == "fav" || all.any { k in it.tags || it.kind == k } }
     val list = all
-        .filter { tab == 0 || it.id in favs }
+        .filter {
+            when (cat) {
+                "all" -> !it.isChain
+                "fav" -> it.id in favs
+                "double", "multihop" -> it.kind == cat
+                else -> cat in it.tags
+            }
+        }
         .filter { query.isBlank() || listOf(it.name, it.city, it.countryName, it.country).any { f -> f.contains(query, true) } }
         .sortedBy { pings[it.id]?.takeIf { p -> p >= 0 } ?: 99999 }
+    val tab = if (cat == "fav") 1 else 0
 
     Column(Modifier.fillMaxSize()) {
         TopBar(acc?.brand ?: "Veltrix VPN", Icons.Outlined.Refresh) { vm.refresh() }
@@ -82,14 +97,13 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
         Spacer(Modifier.height(14.dp))
 
         // filteri
-        Row(Modifier.padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Chip(t("All", "Svi"), tab == 0) { tab = 0 }
-            Chip(t("Favorites", "Omiljeni"), tab == 1, Icons.Outlined.StarBorder) { tab = 1 }
+        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            cats.forEach { (k, l) -> Chip(l, cat == k, if (k == "fav") Icons.Outlined.StarBorder else null) { cat = k } }
         }
         Spacer(Modifier.height(10.dp))
 
         LazyColumn(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (tab == 0 && query.isBlank()) {
+            if (cat == "all" && query.isBlank()) {
                 item {
                     Card(Modifier.fillMaxWidth(), glow = selected == -1, onClick = { vm.select(-1); onPicked() }) {
                         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -112,8 +126,11 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
                         Flag(s.flag, 48.dp)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(s.countryName, color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                            Text(s.city, color = C.muted, fontSize = 14.sp)
+                            Text(if (s.isChain) s.name else s.countryName, color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                            Text(if (s.isChain) s.route else s.city, color = C.muted, fontSize = 14.sp)
+                            if (s.tags.isNotEmpty() && !s.isChain) {
+                                Text(s.tags.joinToString(" · ") { tagName(it) }, color = C.redHi, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            }
                             Box(Modifier.padding(top = 4.dp)) { PingDot(pings[s.id]) }
                         }
                         Icon(
@@ -137,6 +154,11 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
             }
         }
     }
+}
+
+fun tagName(k: String) = when (k) {
+    "p2p" -> "P2P"; "streaming" -> "Streaming"; "gaming" -> "Gaming"; "special" -> t("Special", "Specijalni")
+    "double" -> "Double VPN"; "multihop" -> "Multihop"; else -> k
 }
 
 @Composable

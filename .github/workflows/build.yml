@@ -37,7 +37,7 @@ jobs:
       # VPN motor (sing-box libbox) se gradi iz izvornog koda i čuva u kešu
       - name: Cache libbox
         id: libbox
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: app/libs/libbox.aar
           key: libbox-${{ env.SING_BOX_VERSION }}-full-v1
@@ -66,12 +66,33 @@ jobs:
           mkdir -p $GITHUB_WORKSPACE/app/libs
           cp libbox.aar $GITHUB_WORKSPACE/app/libs/
 
+      - name: Save libbox
+        if: steps.libbox.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: app/libs/libbox.aar
+          key: ${{ steps.libbox.outputs.cache-primary-key }}
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
 
       - name: Build APK
-        run: gradle :app:assembleRelease --no-daemon --stacktrace
+        run: |
+          set -o pipefail
+          gradle :app:assembleRelease --no-daemon --console=plain 2>&1 | tee build.log
+
+      # greške kao anotacije (čitljive preko API-ja)
+      - name: Report errors
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong" -A4 build.log | head -150 > err.txt || true
+          python3 - <<'PY'
+          lines = open('err.txt').read().splitlines()
+          for i in range(0, len(lines), 15):
+              chunk = '%0A'.join(l.replace('%', '%25') for l in lines[i:i+15])
+              print('::error::' + chunk)
+          PY
 
       - name: Rename APK
         run: |

@@ -123,7 +123,7 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
             items(list, key = { it.id }) { s ->
                 Card(Modifier.fillMaxWidth(), glow = selected == s.id, onClick = { vm.select(s.id); onPicked() }) {
                     Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Flag(s.flag, 48.dp)
+                        Flag(s.country, 48.dp)
                         Spacer(Modifier.width(14.dp))
                         Column(Modifier.weight(1f)) {
                             Text(if (s.isChain) s.name else s.countryName, color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)

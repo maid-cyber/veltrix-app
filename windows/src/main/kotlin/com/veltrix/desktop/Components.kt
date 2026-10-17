@@ -95,9 +95,31 @@ fun Logo(size: Dp, modifier: Modifier = Modifier) {
     }
 }
 
-/** Oznaka države (Windows ne prikazuje zastave kao emoji). */
+// zastave su PNG u resources/flags (Windows ne prikazuje emoji zastave); učitaju se jednom
+private val flagCache = HashMap<String, androidx.compose.ui.graphics.ImageBitmap?>()
+private fun flagBitmap(cc: String): androidx.compose.ui.graphics.ImageBitmap? {
+    val k = cc.lowercase()
+    if (k.length != 2 || !k.all { it in 'a'..'z' }) return null
+    return flagCache.getOrPut(k) {
+        runCatching {
+            Thread.currentThread().contextClassLoader.getResourceAsStream("flags/$k.png")
+                ?.use { androidx.compose.ui.res.loadImageBitmap(it) }
+        }.getOrNull()
+    }
+}
+
+/** Zastava države u krugu; bez zastave ostaje oznaka sa slovima. */
 @Composable
 fun CountryBadge(cc: String, size: Dp = 42.dp) {
+    val flag = remember(cc) { flagBitmap(cc) }
+    if (flag != null) {
+        androidx.compose.foundation.Image(
+            flag, cc,
+            Modifier.size(size).clip(CircleShape).border(1.dp, Color.White.copy(alpha = .14f), CircleShape),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        return
+    }
     Box(
         Modifier.size(size).clip(CircleShape).background(Brush.linearGradient(listOf(C.red.copy(alpha = .9f), Color(0xFF6B3FE0)))),
         contentAlignment = Alignment.Center,

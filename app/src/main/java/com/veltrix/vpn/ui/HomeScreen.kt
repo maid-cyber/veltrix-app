@@ -101,7 +101,7 @@ fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit,
         // izabrani server
         Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth(), glow = on, onClick = onLocations) {
             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Flag(server?.flag ?: "🌐", 48.dp)
+                Flag(server?.country ?: "", 48.dp)
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

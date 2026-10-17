@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -115,8 +116,30 @@ fun TopBar(brand: String, icon: ImageVector? = null, onIcon: () -> Unit = {}) {
 }
 
 // ---------------------------------------------------------------- zastava u krugu
+// zastave su PNG u assets/flags (isto izgledaju na svakom telefonu); učitaju se jednom
+private val flagCache = HashMap<String, androidx.compose.ui.graphics.ImageBitmap?>()
+
 @Composable
-fun Flag(emoji: String, size: Dp = 44.dp) {
+fun Flag(cc: String, size: Dp = 44.dp) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val flag = androidx.compose.runtime.remember(cc) {
+        val k = cc.lowercase()
+        if (k.length != 2 || !k.all { it in 'a'..'z' }) null
+        else flagCache.getOrPut(k) {
+            runCatching {
+                ctx.assets.open("flags/$k.png").use { android.graphics.BitmapFactory.decodeStream(it) }?.asImageBitmap()
+            }.getOrNull()
+        }
+    }
+    if (flag != null) {
+        androidx.compose.foundation.Image(
+            flag, cc,
+            Modifier.size(size).clip(CircleShape).border(1.dp, Color.White.copy(alpha = .14f), CircleShape),
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+        )
+        return
+    }
+    val emoji = com.veltrix.vpn.data.flagOf(cc.uppercase()).ifBlank { "🌐" }
     Box(
         Modifier.size(size).clip(CircleShape).background(C.card2).border(1.dp, C.line2, CircleShape),
         contentAlignment = Alignment.Center,

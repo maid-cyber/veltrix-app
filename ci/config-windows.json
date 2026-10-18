@@ -31,7 +31,10 @@
       "mtu": 9000,
       "auto_route": true,
       "strict_route": true,
-      "stack": "mixed"
+      "stack": "mixed",
+      "route_exclude_address": [
+        "46.224.10.214/32"
+      ]
     },
     {
       "type": "mixed",

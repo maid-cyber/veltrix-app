@@ -674,6 +674,7 @@ private fun DiagnosticsScreen(state: AppState) {
             append(if (net >= 0) "✓ " else "✗ "); append(t("Internet: ", "Internet: ")); append(if (net >= 0) "$net ms" else t("no connection", "nema veze")); append("\n")
             if (s != null) { append(if ((srv ?: -1) >= 0) "✓ " else "✗ "); append("VPN server ${s.host}:${s.port}: "); append(if ((srv ?: -1) >= 0) "$srv ms" else t("not reachable", "ne odgovara")); append("\n") }
             append(t("Engine: ", "Motor: ")); append(if (Core.binary.exists()) Core.binary.path else t("sing-box.exe missing!", "nema sing-box.exe!"))
+            if (state.status.value == Status.Started) { append("\n"); append(t("(VPN is connected, so these checks go through the tunnel. Disconnect and reopen Diagnostics to test the server directly.)", "(VPN je spojen, pa ove provjere idu kroz tunel. Prekini vezu i ponovo otvori Dijagnostiku da provjeriš server direktno.)")) }
         }
     }
     val feat = state.account.collectAsState().value?.features ?: Features()

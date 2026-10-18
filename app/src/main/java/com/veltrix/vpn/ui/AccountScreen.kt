@@ -270,7 +270,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
                 Spacer(Modifier.height(14.dp))
                 BigButton(t("Share", "Podijeli"), null) {
                     val text = t("Try ${acc?.brand ?: "Veltrix VPN"} free. Enter my code ${r.code} in the app: ", "Probaj ${acc?.brand ?: "Veltrix VPN"} besplatno. U aplikaciji upiši moj kod ${r.code}: ") +
-                        "https://github.com/${BuildConfig.UPDATE_REPO}/releases/latest"
+                        "${BuildConfig.PANEL_URL}/download/android"
                     runCatching { ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), null)) }
                 }
             }

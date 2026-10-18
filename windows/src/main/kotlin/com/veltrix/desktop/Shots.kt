@@ -7,7 +7,8 @@ import org.json.JSONArray
 import java.io.File
 
 /** Pravi screenshotove svih ekrana sa primjer podacima (za provjeru izgleda na GitHubu). */
-fun main(args: Array<String>) {
+object Shots {
+@JvmStatic fun main(args: Array<String>) {
     val out = File(args.firstOrNull() ?: "shots").apply { mkdirs() }
     val vless = JSONArray().put(org.json.JSONObject().put("type", "vless"))
     fun srv(id: Int, name: String, city: String, cc: String, tags: List<String> = emptyList(), kind: String = "server", hops: List<Pair<String, String>> = emptyList()) =
@@ -45,4 +46,5 @@ fun main(args: Array<String>) {
     scene.close()
     println("ok login")
     kotlin.system.exitProcess(0)
+}
 }

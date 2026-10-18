@@ -41,6 +41,12 @@ Name: "{autodesktop}\Veltrix VPN"; Filename: "{app}\VeltrixVPN.exe"; Tasks: desk
 ; VPN adapter (Wintun) traži administratorska prava: program se uvijek pokreće kao administrator
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; ValueType: string; ValueName: "{app}\VeltrixVPN.exe"; ValueData: "~ RUNASADMIN"; Flags: uninsdeletevalue
 
+; veltrix:// linkovi (dugme "Otvori u aplikaciji" u e-mailu i na stranici kupca) otvaraju aplikaciju
+Root: HKCR; Subkey: "veltrix"; ValueType: string; ValueName: ""; ValueData: "URL:Veltrix VPN"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "veltrix"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCR; Subkey: "veltrix\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\VeltrixVPN.exe,0"
+Root: HKCR; Subkey: "veltrix\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\VeltrixVPN.exe"" ""%1"""
+
 [Run]
 Filename: "{app}\VeltrixVPN.exe"; Description: "Pokreni Veltrix VPN"; Flags: nowait postinstall skipifsilent shellexec
 

@@ -118,7 +118,8 @@ class MainActivity : ComponentActivity() {
     // veltrix://import?url=… (dugme na stranici kupca)
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        if (data.scheme == "veltrix") vm.login(data.toString())
+        // link iz e-maila / stranice kupca: uvezi nalog i odmah spoji (Android jednom pita dozvolu za VPN)
+        if (data.scheme == "veltrix") vm.login(data.toString()) { connect() }
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()

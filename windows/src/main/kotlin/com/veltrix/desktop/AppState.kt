@@ -59,7 +59,7 @@ class AppState(private val demo: Account? = null) {
         }
     }
 
-    fun login(input: String) {
+    fun login(input: String, autoConnect: Boolean = false) {
         val link = Api.normalize(input) ?: run {
             message.value = t("That doesn't look like your access link.", "To nije ispravan pristupni link. Kopiraj ga ponovo.")
             return
@@ -74,6 +74,7 @@ class AppState(private val demo: Account? = null) {
                 applyFeatures(acc.features)
                 loggedIn.value = true
                 pingAll()
+                if (autoConnect) { delay(1500); if (status.value == Status.Stopped) connect() }
             } catch (e: Exception) {
                 message.value = if (e.message == "not_found") t("Account not found. Ask support for a new link.", "Nalog nije pronađen. Traži novi link od podrške.")
                 else t("Can't reach the server: ", "Ne mogu dohvatiti nalog: ") + e.message

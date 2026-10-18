@@ -60,6 +60,6 @@ compose.desktop {
 tasks.register<JavaExec>("shots") {
     dependsOn("classes")
     classpath = sourceSets["main"].runtimeClasspath
-    mainClass.set("com.veltrix.desktop.ShotsKt")
+    mainClass.set("com.veltrix.desktop.Shots")
     args(layout.buildDirectory.dir("shots").get().asFile.path)
 }

@@ -37,7 +37,7 @@ object Notifier {
     }
 
     fun dropped(ctx: Context, reason: String?) {
-        if (!Store.notifyDrop) return
+        if (!Store.notifyDrop || !Store.featNotify) return
         val bs = Store.bosnian()
         show(
             ctx, 2,
@@ -49,7 +49,7 @@ object Notifier {
 
     /** Jednom dnevno, kad pretplata ističe za 3 dana ili manje. */
     fun expiry(ctx: Context, acc: Account) {
-        if (!Store.notifyExpiry || acc.expiresAt <= 0) return
+        if (!Store.notifyExpiry || !acc.features.notify || acc.expiresAt <= 0) return
         val left = acc.expiresAt - System.currentTimeMillis()
         if (left <= 0 || left > 3 * 86_400_000L) return
         val today = System.currentTimeMillis() / 86_400_000L

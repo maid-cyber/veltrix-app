@@ -114,8 +114,36 @@ fun copyText(s: String) = runCatching { Toolkit.getDefaultToolkit().systemClipbo
 fun Root(state: AppState, startTab: Int = 0) {
     val loggedIn by state.loggedIn.collectAsState()
     Box(Modifier.fillMaxSize().background(C.bg).background(Brush.radialGradient(listOf(C.red.copy(alpha = .14f), Color.Transparent), center = Offset(1200f, 0f), radius = 1100f))) {
-        if (!loggedIn) LoginScreen(state) else Shell(state, startTab)
+        val must by state.mustUpdate.collectAsState()
+        when {
+            must != null -> MustUpdateScreen(state, must!!)
+            !loggedIn -> LoginScreen(state)
+            else -> Shell(state, startTab)
+        }
         Toasts(state)
+    }
+}
+
+/** Panel je ugasio ovu verziju aplikacije: samo dugme za preuzimanje nove. */
+@Composable
+private fun MustUpdateScreen(state: AppState, msg: String) {
+    val u by state.update.collectAsState()
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Card(Modifier.width(460.dp)) {
+            Column(Modifier.padding(36.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Logo(80.dp)
+                Spacer(Modifier.height(18.dp))
+                Text(t("Update required", "Potrebno ažuriranje"), color = C.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(10.dp))
+                Text(msg, color = C.soft, fontSize = 14.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(6.dp))
+                Text(t("Your version: ", "Tvoja verzija: ") + BuildInfo.VERSION, color = C.muted, fontSize = 12.sp)
+                Spacer(Modifier.height(22.dp))
+                BigButton(u?.let { t("Download ", "Preuzmi ") + it.version } ?: t("Download new version", "Preuzmi novu verziju"), null) {
+                    openUrl(u?.url ?: "https://github.com/${BuildInfo.UPDATE_REPO}/releases")
+                }
+            }
+        }
     }
 }
 
@@ -153,7 +181,8 @@ private fun Shell(state: AppState, startTab: Int) {
             NavItem(Icons.Outlined.LocationOn, t("Locations", "Lokacije"), tab == 1) { tab = 1 }
             NavItem(Icons.Outlined.Shield, t("Security", "Sigurnost"), tab == 2) { tab = 2 }
             NavItem(Icons.Outlined.Person, t("Account", "Nalog"), tab == 3) { tab = 3 }
-            NavItem(Icons.Outlined.Terminal, t("Diagnostics", "Dijagnostika"), tab == 4) { tab = 4 }
+            val f = acc?.features ?: Features()
+            if (f.diag || f.speedtest) NavItem(Icons.Outlined.Terminal, if (f.diag) t("Diagnostics", "Dijagnostika") else t("Speed test", "Test brzine"), tab == 4) { tab = 4 }
             Spacer(Modifier.weight(1f))
             upd?.let {
                 Card(Modifier.fillMaxWidth().padding(bottom = 10.dp), glow = true, onClick = { openUrl(it.url) }) {
@@ -233,10 +262,12 @@ private fun LoginScreen(state: AppState) {
                 Spacer(Modifier.height(18.dp))
                 var ref by remember { mutableStateOf("") }
                 var showRef by remember { mutableStateOf(false) }
-                if (!loading) {
+                val cfg by state.loginCfg.collectAsState()
+                if (!loading && cfg.trial) {
                     BigButton(t("Try free", "Probaj besplatno"), null, filled = false) { state.trial(ref) }
                     Spacer(Modifier.height(8.dp))
-                    if (!showRef) Text(t("Have a friend's code?", "Imaš kod prijatelja?"), color = C.redHi, fontSize = 13.sp, modifier = Modifier.clickable { showRef = true }.padding(6.dp))
+                    if (!cfg.ref) Unit
+                    else if (!showRef) Text(t("Have a friend's code?", "Imaš kod prijatelja?"), color = C.redHi, fontSize = 13.sp, modifier = Modifier.clickable { showRef = true }.padding(6.dp))
                     else Box(Modifier.fillMaxWidth().height(46.dp).clip(RoundedCornerShape(12.dp)).background(C.bg).border(1.dp, C.line2, RoundedCornerShape(12.dp)).padding(horizontal = 14.dp), contentAlignment = Alignment.CenterStart) {
                         if (ref.isEmpty()) Text(t("Friend's code (optional)", "Kod prijatelja (nije obavezno)"), color = C.muted, fontSize = 14.sp)
                         BasicTextField(ref, { ref = it.uppercase().take(12) }, singleLine = true, textStyle = TextStyle(color = C.text, fontSize = 14.sp, letterSpacing = 2.sp), cursorBrush = SolidColor(C.red), modifier = Modifier.fillMaxWidth())
@@ -310,7 +341,7 @@ private fun HomeScreen(state: AppState, onLocations: () -> Unit, onSpeed: () -> 
                     Stat(Icons.Outlined.ArrowUpward, t("Upload", "Slanje"), u.first, u.second, Modifier.weight(1f))
                 }
             }
-            if (on) Text(t("Test speed →", "Izmjeri brzinu →"), color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(8.dp))
+            if (on && state.account.value?.features?.speedtest != false) Text(t("Test speed →", "Izmjeri brzinu →"), color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(8.dp))
             Spacer(Modifier.height(10.dp))
             BigButton(when { on -> t("Disconnect", "Prekini vezu"); busy -> t("Please wait…", "Sačekaj…"); else -> t("Connect", "Spoji se") }, Icons.Outlined.PowerSettingsNew) { state.toggle() }
             acc?.announce?.takeIf { it.isNotBlank() }?.let {
@@ -544,18 +575,19 @@ private fun AccountScreen(state: AppState) {
                     Text(t("Settings", "Podešavanja"), color = C.soft, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
                     Card(Modifier.fillMaxWidth()) {
                         Column {
-                            SetRow(Icons.Outlined.VpnKey, t("VPN protocol", "VPN protokol"), when (protocol) { "vless" -> "VLESS Reality"; "shadowsocks" -> "Shadowsocks 2022"; else -> t("Automatic (recommended)", "Automatski (preporučeno)") }, onClick = {
+                            val f = acc?.features ?: Features()
+                            if (f.protocol) SetRow(Icons.Outlined.VpnKey, t("VPN protocol", "VPN protokol"), when (protocol) { "vless" -> "VLESS Reality"; "shadowsocks" -> "Shadowsocks 2022"; else -> t("Automatic (recommended)", "Automatski (preporučeno)") }, onClick = {
                                 state.setProtocol(when (protocol) { "auto" -> "vless"; "vless" -> "shadowsocks"; else -> "auto" })
                             }) { Text(t("change", "promijeni"), color = C.redHi, fontSize = 13.sp) }
                             SetSwitch(Icons.Outlined.Autorenew, t("Connect on start", "Spoji pri pokretanju"), t("Connects when the app opens", "Spoji se čim otvoriš aplikaciju"), auto) { state.setAutoConnect(it) }
-                            SetRow(Icons.Outlined.Language, t("Language", "Jezik"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja")) {
+                            if (f.language) SetRow(Icons.Outlined.Language, t("Language", "Jezik"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja")) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                     listOf("auto" to "Auto", "bs" to "BS", "en" to "EN").forEach { (k, l) ->
                                         Text(l, color = if (Store.lang == k) Color.White else C.soft, fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (Store.lang == k) C.red else C.card2).clickable { Store.lang = k; state.message.value = t("Restart the app to change the language.", "Ponovo pokreni aplikaciju da se promijeni jezik.") }.padding(horizontal = 10.dp, vertical = 5.dp))
                                     }
                                 }
                             }
-                            SetRow(Icons.Outlined.Palette, t("Accent color", "Boja akcenta"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja"), last = true) {
+                            if (f.look) SetRow(Icons.Outlined.Palette, t("Accent color", "Boja akcenta"), t("Restart the app to apply", "Važi poslije ponovnog pokretanja"), last = true) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     ACCENTS.forEach { (k, c) ->
                                         Box(Modifier.size(26.dp).clip(CircleShape).background(c.first).border(2.dp, if (Store.accent == k) Color.White else Color.Transparent, CircleShape).clickable { Store.accent = k })
@@ -574,14 +606,14 @@ private fun AccountScreen(state: AppState) {
                             SetRow(Icons.Outlined.CardMembership, t("Subscription", "Pretplata"), (acc?.plan?.ifBlank { null } ?: "—") + " · " + statusText(acc?.status))
                             if (acc?.renew?.isNotEmpty() == true) SetRow(Icons.Outlined.CreditCard, t("Renew subscription", "Produži pretplatu"), t("Pay by card, days are added right away", "Plati karticom, dani se dodaju odmah"), onClick = { showRenew = !showRenew }) { Icon(Icons.Outlined.ChevronRight, null, tint = C.muted) }
                             acc?.ref?.let { r -> SetRow(Icons.Outlined.CardGiftcard, t("Invite a friend", "Pozovi prijatelja"), t("Your code ${r.code} · both get ${r.days} free days", "Tvoj kod ${r.code} · obojica ${r.days} dana gratis"), onClick = { copyText(r.code); state.message.value = t("Code copied", "Kod kopiran") }) { Text(t("copy", "kopiraj"), color = C.redHi, fontSize = 13.sp) } }
-                            SetRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected now", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno sada"))
+                            if (acc?.features?.devices != false) SetRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected now", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno sada"))
                             if (acc?.features?.history != false) SetRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), onClick = { showHistory = !showHistory }) { Icon(Icons.Outlined.ChevronRight, null, tint = C.muted) }
                             val support = acc?.support.orEmpty()
-                            SetRow(Icons.Outlined.SupportAgent, t("Help & Support", "Podrška"), support.ifBlank { t("Contact your seller", "Javi se prodavcu") }, onClick = {
+                            if (acc?.features?.support != false) SetRow(Icons.Outlined.SupportAgent, t("Help & Support", "Podrška"), support.ifBlank { t("Contact your seller", "Javi se prodavcu") }, onClick = {
                                 val m = Regex("@([A-Za-z0-9_]{4,})").find(support)
                                 when { support.startsWith("http") -> openUrl(support); m != null -> openUrl("https://t.me/" + m.groupValues[1]) }
                             })
-                            SetRow(Icons.Outlined.Info, t("Version ", "Verzija ") + BuildInfo.VERSION, upd?.let { t("Update available: ", "Dostupna nova: ") + it.version } ?: t("Check for updates", "Provjeri ima li nova verzija"), onClick = { upd?.let { openUrl(it.url) } ?: state.checkUpdate(true) })
+                            SetRow(Icons.Outlined.Info, t("Version ", "Verzija ") + BuildInfo.VERSION, upd?.let { t("Update available: ", "Dostupna nova: ") + it.version } ?: t("Check for updates", "Provjeri ima li nova verzija"), onClick = { upd?.let { openUrl(it.url) } ?: run { if (acc?.features?.updates != false) state.checkUpdate(true) } })
                             SetRow(Icons.AutoMirrored.Outlined.Logout, t("Log out", "Odjava"), t("You will need your access link again", "Za ponovnu prijavu treba pristupni link"), last = true, onClick = { state.logout() })
                         }
                     }
@@ -643,16 +675,19 @@ private fun DiagnosticsScreen(state: AppState) {
             append(t("Engine: ", "Motor: ")); append(if (Core.binary.exists()) Core.binary.path else t("sing-box.exe missing!", "nema sing-box.exe!"))
         }
     }
+    val feat = state.account.collectAsState().value?.features ?: Features()
     Column(Modifier.fillMaxSize()) {
-        Title(t("Diagnostics", "Dijagnostika"), t("Status: ", "Stanje: ") + status.name)
-        Card(Modifier.fillMaxWidth()) { Text(test ?: t("Testing…", "Testiram…"), color = C.text, fontSize = 14.sp, modifier = Modifier.padding(16.dp)) }
-        Spacer(Modifier.height(12.dp))
+        Title(if (feat.diag) t("Diagnostics", "Dijagnostika") else t("Speed test", "Test brzine"), t("Status: ", "Stanje: ") + status.name)
+        if (feat.diag) {
+            Card(Modifier.fillMaxWidth()) { Text(test ?: t("Testing…", "Testiram…"), color = C.text, fontSize = 14.sp, modifier = Modifier.padding(16.dp)) }
+            Spacer(Modifier.height(12.dp))
+        }
         var speed by remember { mutableStateOf<String?>(null) }
         var speedRun by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false, modifier = Modifier.width(200.dp)) { copyText((test ?: "") + "\n\n" + log) }
-            if (status == Status.Started) {
+            if (feat.diag) BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false, modifier = Modifier.width(200.dp)) { copyText((test ?: "") + "\n\n" + log) }
+            if (status == Status.Started && feat.speedtest) {
                 BigButton(if (speedRun) t("Testing…", "Mjerim…") else t("Speed test", "Test brzine"), null, filled = !speedRun, modifier = Modifier.width(200.dp)) {
                     if (speedRun) return@BigButton
                     speedRun = true
@@ -667,7 +702,7 @@ private fun DiagnosticsScreen(state: AppState) {
             }
         }
         Spacer(Modifier.height(12.dp))
-        Card(Modifier.fillMaxWidth().weight(1f)) {
+        if (feat.diag) Card(Modifier.fillMaxWidth().weight(1f)) {
             SelectionContainer {
                 Text(log.ifBlank { t("Empty. Connect the VPN to see the engine log.", "Prazno. Spoji VPN da vidiš log motora.") }, color = C.soft, fontSize = 11.sp, fontFamily = FontFamily.Monospace, modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(14.dp))
             }

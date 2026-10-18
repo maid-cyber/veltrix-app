@@ -38,7 +38,11 @@ object Store {
     /** auto | bs | en */
     var lang: String get() = str("lang", "auto"); set(v) = setStr("lang", v)
 
-    fun bosnian(): Boolean = when (lang) {
+    /** Iz panela (stranica Aplikacija): zadani jezik i smije li kupac birati jezik. */
+    var adminLang: String get() = str("admin_lang", "auto"); set(v) = setStr("admin_lang", v)
+    var langLocked: Boolean get() = bool("lang_locked", false); set(v) = setBool("lang_locked", v)
+
+    fun bosnian(): Boolean = when (if (langLocked || lang == "auto") adminLang else lang) {
         "bs" -> true
         "en" -> false
         else -> Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")

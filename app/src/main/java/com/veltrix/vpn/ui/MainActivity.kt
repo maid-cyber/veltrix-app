@@ -162,8 +162,46 @@ class MainActivity : ComponentActivity() {
                 Brush.radialGradient(listOf(C.red.copy(alpha = .22f), C.bg), radius = 1400f),
             ),
         ) {
-            if (!loggedIn) LoginScreen() else MainTabs()
+            val must by vm.mustUpdate.collectAsState()
+            val lc by vm.langChanged.collectAsState()
+            LaunchedEffect(lc) { if (lc > vm.langHandled) { vm.langHandled = lc; recreate() } }
+            when {
+                must != null -> MustUpdateScreen(must!!)
+                !loggedIn -> LoginScreen()
+                else -> MainTabs()
+            }
             UpdateDialog()
+        }
+    }
+
+    /** Panel je ugasio ovu verziju aplikacije: samo dugme za ažuriranje. */
+    @Composable
+    private fun MustUpdateScreen(msg: String) {
+        val u by vm.update.collectAsState()
+        val progress by vm.updateProgress.collectAsState()
+        Column(
+            Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        ) {
+            Icon(Icons.Outlined.SystemUpdate, null, tint = C.red, modifier = Modifier.size(72.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(t("Update required", "Potrebno ažuriranje"), color = C.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(10.dp))
+            Text(msg, color = C.soft, fontSize = 15.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(6.dp))
+            Text(t("Your version: ", "Tvoja verzija: ") + BuildConfig.VERSION_NAME, color = C.muted, fontSize = 13.sp)
+            Spacer(Modifier.height(26.dp))
+            val p = progress
+            if (p != null) {
+                LinearProgressIndicator(progress = { p }, color = C.red, trackColor = C.line2, modifier = Modifier.fillMaxWidth())
+                Text(t("Downloading… ", "Skidanje… ") + "${(p * 100).toInt()}%", color = C.soft, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
+            } else if (u != null) {
+                BigButton(t("Update to ", "Ažuriraj na ") + u!!.version, Icons.Outlined.SystemUpdate, filled = true) { vm.installUpdate() }
+            } else {
+                BigButton(t("Download new version", "Preuzmi novu verziju"), null, filled = true) {
+                    runCatching { startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://github.com/${BuildConfig.UPDATE_REPO}/releases/latest"))) }
+                }
+            }
         }
     }
 
@@ -206,6 +244,7 @@ class MainActivity : ComponentActivity() {
     private fun MainTabs() {
         var tab by remember { mutableIntStateOf(0) }
         var sub by remember { mutableStateOf("") }
+        val acc by vm.account.collectAsState()
         BackHandler(enabled = sub.isNotEmpty() || tab != 0) { if (sub.isNotEmpty()) sub = "" else tab = 0 }
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Box(Modifier.weight(1f)) {
@@ -213,7 +252,7 @@ class MainActivity : ComponentActivity() {
                     sub == "apps" -> AppsScreen(vm) { sub = "" }
                     sub == "devices" -> DevicesScreen(vm) { sub = "" }
                     sub == "history" -> HistoryScreen(vm) { sub = "" }
-                    sub == "diag" -> DiagnosticsScreen(vm) { sub = "" }
+                    sub == "diag" && (acc?.features?.diag != false || acc?.features?.speedtest != false) -> DiagnosticsScreen(vm) { sub = "" }
                     tab == 0 -> HomeScreen(vm, onToggle = { toggle() }, onLocations = { tab = 1 }, onSettings = { tab = 3 }, onSpeed = { sub = "diag" })
                     tab == 1 -> LocationsScreen(vm, onPicked = { tab = 0 })
                     tab == 2 -> SecurityScreen(vm, onApps = { sub = "apps" })
@@ -288,10 +327,13 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(26.dp))
             var showRef by remember { mutableStateOf(false) }
             var ref by remember { mutableStateOf("") }
-            if (!loading) {
+            val cfg by vm.loginCfg.collectAsState()
+            if (!loading && cfg.trial) {
                 BigButton(t("Try free", "Probaj besplatno"), null, filled = true) { vm.trial(ref) }
                 Spacer(Modifier.height(10.dp))
-                if (!showRef) {
+                if (!cfg.ref) {
+                    // kod prijatelja isključen u panelu
+                } else if (!showRef) {
                     Text(t("Have a friend's code?", "Imaš kod prijatelja?"), color = C.redHi, fontSize = 14.sp, modifier = Modifier.clickable { showRef = true }.padding(6.dp))
                 } else {
                     Row(

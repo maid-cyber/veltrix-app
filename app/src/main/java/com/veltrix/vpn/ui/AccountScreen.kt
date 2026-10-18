@@ -123,7 +123,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
         // ---------------- podešavanja
         GroupTitle(t("Settings", "Podešavanja"))
         SecGroup {
-            SecRow(
+            if (f.protocol) SecRow(
                 Icons.Outlined.VpnKey, t("VPN protocol", "VPN protokol"),
                 when (protocol) { "vless" -> "VLESS Reality"; "shadowsocks" -> "Shadowsocks 2022"; else -> t("Automatic (recommended)", "Automatski (preporučeno)") },
                 trailing = { Chev() }, onClick = { dialog = "proto" },
@@ -134,8 +134,12 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
                 trailing = { Chev() }, onClick = { dialog = "auto" },
             )
             if (f.split) SecRow(Icons.Outlined.Apps, t("App management", "Upravljanje aplikacijama"), t("Choose apps that bypass the VPN", "Izaberi aplikacije koje idu mimo VPN-a"), trailing = { Chev() }, onClick = { onSub("apps") })
-            SecRow(Icons.Outlined.Palette, t("Appearance", "Izgled aplikacije"), accentName(Store.accent) + if (Store.amoled) " · AMOLED" else "", trailing = { Chev() }, onClick = { dialog = "look" })
-            SecRow(
+            if (f.look || f.language) SecRow(
+                Icons.Outlined.Palette, t("Appearance", "Izgled aplikacije"),
+                listOfNotNull(if (f.look) accentName(Store.accent) + (if (Store.amoled) " · AMOLED" else "") else null, if (f.language) langName(Store.lang) else null).joinToString(" · "),
+                trailing = { Chev() }, onClick = { dialog = "look" }, last = !f.notify,
+            )
+            if (f.notify) SecRow(
                 Icons.Outlined.Notifications, t("Notifications", "Obavijesti"),
                 listOfNotNull(if (nDrop) t("disconnects", "prekid veze") else null, if (nExp) t("expiry", "istek pretplate") else null).joinToString(", ").ifBlank { t("Off", "Isključene") },
                 trailing = { Chev() }, onClick = { dialog = "notif" }, last = true,
@@ -152,10 +156,10 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
                 SecRow(Icons.Outlined.CardGiftcard, t("Invite a friend", "Pozovi prijatelja"), t("You both get ${r.days} free days", "Obojica dobijete ${r.days} dana gratis"), trailing = { Chev() }, onClick = { dialog = "ref" })
             }
             SecRow(Icons.Outlined.CardMembership, t("Subscription", "Pretplata"), (acc?.plan?.ifBlank { null } ?: "—") + " · " + statusText(acc?.status), trailing = { Chev() }, onClick = { dialog = "sub" })
-            SecRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno"), trailing = { Chev() }, onClick = { onSub("devices") })
-            if (f.history) SecRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), trailing = { Chev() }, onClick = { onSub("history") })
+            if (f.devices) SecRow(Icons.Outlined.Devices, t("Devices", "Uređaji"), t("${acc?.devicesActive ?: 0} of ${acc?.devices ?: 1} connected", "${acc?.devicesActive ?: 0} od ${acc?.devices ?: 1} spojeno"), trailing = { Chev() }, onClick = { onSub("devices") })
+            if (f.history) SecRow(Icons.Outlined.History, t("Activity history", "Povijest aktivnosti"), t("${acc?.history?.size ?: 0} entries", "Zapisa: ${acc?.history?.size ?: 0}"), trailing = { Chev() }, onClick = { onSub("history") }, last = !f.support)
             val support = acc?.support.orEmpty()
-            SecRow(
+            if (f.support) SecRow(
                 Icons.Outlined.SupportAgent, t("Help & Support", "Podrška"), support.ifBlank { t("Contact your seller", "Javi se prodavcu") },
                 trailing = { Chev() }, last = true,
                 onClick = {
@@ -171,12 +175,12 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
         }
         Spacer(Modifier.height(14.dp))
         SecGroup {
-            SecRow(Icons.Outlined.NetworkCheck, t("Connection test", "Dijagnostika veze"), t("Find out why the internet does not work", "Provjeri zašto internet ne radi"), trailing = { Chev() }, onClick = { onSub("diag") })
+            if (f.diag) SecRow(Icons.Outlined.NetworkCheck, t("Connection test", "Dijagnostika veze"), t("Find out why the internet does not work", "Provjeri zašto internet ne radi"), trailing = { Chev() }, onClick = { onSub("diag") })
             SecRow(
                 Icons.Outlined.Info, t("Version ", "Verzija ") + BuildConfig.VERSION_NAME,
                 upd?.let { t("Update available: ", "Dostupna nova: ") + it.version } ?: "sing-box · GPLv3",
                 trailing = { Chev() },
-                onClick = { if (upd != null) vm.updateDismissed.value = false else vm.checkUpdate(manual = true) },
+                onClick = { if (upd != null) vm.updateDismissed.value = false else if (f.updates) vm.checkUpdate(manual = true) },
             )
             SecRow(Icons.AutoMirrored.Outlined.Logout, t("Log out", "Odjava"), t("You will need your link or QR code again", "Za ponovnu prijavu treba link ili QR kod"), last = true, onClick = { dialog = "logout" })
         }
@@ -201,6 +205,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
             ToggleLine(t("3 days before expiry", "3 dana prije isteka pretplate"), nExp) { vm.setNotifyExpiry(it) }
         }
         "look" -> Dlg(t("Appearance", "Izgled aplikacije"), { dialog = "" }) {
+          if (f.look) {
             Text(t("Accent color", "Boja akcenta"), color = C.soft, fontSize = 14.sp)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -215,6 +220,8 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
             Spacer(Modifier.height(14.dp))
             ToggleLine(t("AMOLED black background", "AMOLED crna pozadina"), Store.amoled) { Store.amoled = it; (ctx as? Activity)?.recreate() }
             Spacer(Modifier.height(10.dp))
+          }
+          if (f.language) {
             Text(t("Language", "Jezik"), color = C.soft, fontSize = 14.sp)
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -226,6 +233,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
                     )
                 }
             }
+          }
         }
         "renew" -> Dlg(t("Renew subscription", "Produži pretplatu"), { dialog = "" }) {
             val a = acc
@@ -296,6 +304,8 @@ fun statusText(st: String?) = when (st) {
     null -> "—"
     else -> t("Disabled", "Ugašen")
 }
+
+private fun langName(k: String) = when (k) { "bs" -> "Bosanski"; "en" -> "English"; else -> t("Phone language", "Jezik telefona") }
 
 private fun accentName(k: String) = when (k) {
     "plava" -> t("Blue", "Plava"); "zelena" -> t("Green", "Zelena"); "ljubicasta" -> t("Purple", "Ljubičasta"); else -> t("Red", "Crvena")

@@ -30,11 +30,29 @@ class AppState(private val demo: Account? = null) {
     val status: StateFlow<Status> = Core.status
     val error: StateFlow<String?> = Core.error
     val update = MutableStateFlow<UpdateInfo?>(null)
+    /** Ekran prijave: šta je admin uključio (probni nalog, kod prijatelja). */
+    val loginCfg = MutableStateFlow(LoginConfig())
+    /** Panel traži noviju verziju aplikacije (poruka), null = ova verzija radi. */
+    val mustUpdate = MutableStateFlow<String?>(null)
+
+    /** Prekidači iz panela: jezik i obavezno ažuriranje. */
+    private fun applyFeatures(f: Features) {
+        Store.adminLang = f.langDefault; Store.langLocked = !f.language
+        mustUpdate.value = if (f.minWindows > BuildInfo.BUILD) f.updateMsg.ifBlank { t("This version no longer works. Please update.", "Ova verzija aplikacije više ne radi. Ažuriraj na novu verziju.") } else null
+        if (mustUpdate.value != null && update.value == null) checkUpdate()
+    }
 
     init {
         if (demo == null) {
+            account.value?.let { applyFeatures(it.features) }
             if (loggedIn.value) refresh(silent = true)
-            checkUpdate()
+            if (account.value?.features?.updates != false) checkUpdate()
+            scope.launch {
+                runCatching { LoginConfig.parse(Api.config()) }.getOrNull()?.let { c ->
+                    loginCfg.value = c
+                    if (!loggedIn.value) applyFeatures(c.features)
+                }
+            }
             scope.launch { while (true) { delay(10 * 60 * 1000L); if (loggedIn.value) refresh(silent = true) } }
             if (Store.autoConnect && loggedIn.value) scope.launch { delay(1500); connect() }
         }
@@ -52,6 +70,7 @@ class AppState(private val demo: Account? = null) {
                 val acc = Account.parse(json)
                 Store.link = link; Store.accountJson = json
                 account.value = acc; sec.value = SecurityOptions.from(acc)
+                applyFeatures(acc.features)
                 loggedIn.value = true
                 pingAll()
             } catch (e: Exception) {
@@ -91,17 +110,19 @@ class AppState(private val demo: Account? = null) {
 
     // automatski protokol: ako VLESS ne prolazi, probaj Shadowsocks
     private var fallbackSS = false
-    private fun effectiveProtocol() = if (fallbackSS && protocol.value == "auto") "shadowsocks" else protocol.value
+    /** Kad admin isključi izbor protokola, uvijek Automatski. */
+    private fun chosenProtocol() = if (account.value?.features?.protocol == false) "auto" else protocol.value
+    private fun effectiveProtocol() = if (fallbackSS && chosenProtocol() == "auto") "shadowsocks" else chosenProtocol()
     private fun watchConnection() {
         scope.launch {
             var n = 0
             while (status.value != Status.Started && n++ < 150) delay(100)
-            if (status.value != Status.Started || protocol.value != "auto" || fallbackSS) return@launch
+            if (status.value != Status.Started || chosenProtocol() != "auto" || fallbackSS) return@launch
             delay(2000)
             val ok = Api.vpnWorks() || run { delay(3000); Api.vpnWorks() }
             val server = currentServer()
             val hasSS = server != null && (0 until server.outbounds.length()).any { server.outbounds.getJSONObject(it).optString("type") == "shadowsocks" }
-            if (!ok && hasSS) {
+            if (!ok && hasSS && account.value?.features?.ssFallback != false) {
                 fallbackSS = true
                 message.value = t("VLESS is blocked on this network. Switching to Shadowsocks…", "VLESS ne prolazi na ovoj mreži. Prebacujem na Shadowsocks…")
                 reconnectIfOn()
@@ -120,6 +141,7 @@ class AppState(private val demo: Account? = null) {
                 Store.accountJson = json
                 val acc = Account.parse(json)
                 account.value = acc; sec.value = SecurityOptions.from(acc)
+                applyFeatures(acc.features)
                 pingAll()
             } catch (e: Exception) {
                 if (e.message == "not_found") message.value = t("Your access link is no longer valid.", "Tvoj pristupni link više ne važi.")
@@ -146,6 +168,7 @@ class AppState(private val demo: Account? = null) {
 
     fun connect() {
         val acc = account.value ?: return run { message.value = t("Log in first.", "Prvo se prijavi.") }
+        mustUpdate.value?.let { message.value = it; return }
         if (!acc.canConnect) {
             message.value = when (acc.status) {
                 "expired", "grace" -> t("Your subscription has expired.", "Pretplata je istekla. Produži je da se možeš spojiti.")

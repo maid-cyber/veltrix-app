@@ -27,7 +27,33 @@ data class Features(
     val killswitch: Boolean = true, val dns: Boolean = true, val dnsDefault: Boolean = true, val split: Boolean = true,
     val ipleak: Boolean = true, val ipleakDefault: Boolean = true, val webrtc: Boolean = true, val webrtcDefault: Boolean = true,
     val boot: Boolean = true, val history: Boolean = true, val dnsFilters: List<String> = emptyList(),
-)
+    // stranica Aplikacija u panelu
+    val protocol: Boolean = true, val ssFallback: Boolean = true, val speedtest: Boolean = true, val diag: Boolean = true,
+    val look: Boolean = true, val language: Boolean = true, val langDefault: String = "auto",
+    val devices: Boolean = true, val support: Boolean = true, val updates: Boolean = true,
+    val minWindows: Int = 0, val updateMsg: String = "",
+) {
+    companion object {
+        fun parse(f: JSONObject?): Features = if (f == null) Features() else Features(
+            killswitch = f.optBoolean("killswitch", true), dns = f.optBoolean("dns", true), dnsDefault = f.optBoolean("dns_default", true),
+            split = f.optBoolean("split", true), ipleak = f.optBoolean("ipleak", true), ipleakDefault = f.optBoolean("ipleak_default", true),
+            webrtc = f.optBoolean("webrtc", true), webrtcDefault = f.optBoolean("webrtc_default", true), boot = f.optBoolean("boot", true),
+            history = f.optBoolean("history", true), dnsFilters = f.optJSONArray("dns_filters").strings(),
+            protocol = f.optBoolean("protocol", true), ssFallback = f.optBoolean("ss_fallback", true), speedtest = f.optBoolean("speedtest", true),
+            diag = f.optBoolean("diag", true), look = f.optBoolean("look", true),
+            language = f.optBoolean("language", true), langDefault = f.optString("lang_default", "auto").ifBlank { "auto" },
+            devices = f.optBoolean("devices", true), support = f.optBoolean("support", true), updates = f.optBoolean("updates", true),
+            minWindows = f.optInt("min_windows", 0), updateMsg = f.optString("update_msg"),
+        )
+    }
+}
+
+/** Podešavanja za ekran prijave (GET /app/config). */
+data class LoginConfig(val trial: Boolean = true, val ref: Boolean = true, val features: Features = Features()) {
+    companion object {
+        fun parse(json: String): LoginConfig = JSONObject(json).let { o -> LoginConfig(o.optBoolean("trial", true), o.optBoolean("ref", true), Features.parse(o.optJSONObject("features"))) }
+    }
+}
 
 data class HistoryItem(val ts: Long, val text: String)
 data class RenewPlan(val id: Int, val name: String, val days: Int, val price: Double)
@@ -77,14 +103,7 @@ data class Account(
                 trafficUsed = o.optLong("traffic_used"), trafficLimit = o.optLong("traffic_limit"), devices = o.optInt("devices", 1),
                 servers = servers,
                 devicesActive = o.optInt("devices_active"),
-                features = o.optJSONObject("features")?.let { f ->
-                    Features(
-                        killswitch = f.optBoolean("killswitch", true), dns = f.optBoolean("dns", true), dnsDefault = f.optBoolean("dns_default", true),
-                        split = f.optBoolean("split", true), ipleak = f.optBoolean("ipleak", true), ipleakDefault = f.optBoolean("ipleak_default", true),
-                        webrtc = f.optBoolean("webrtc", true), webrtcDefault = f.optBoolean("webrtc_default", true), boot = f.optBoolean("boot", true),
-                        history = f.optBoolean("history", true), dnsFilters = f.optJSONArray("dns_filters").strings(),
-                    )
-                } ?: Features(),
+                features = Features.parse(o.optJSONObject("features")),
                 renew = o.optJSONArray("renew")?.let { a -> (0 until a.length()).map { a.getJSONObject(it).let { x -> RenewPlan(x.optInt("id"), x.optString("name"), x.optInt("days"), x.optDouble("price")) } } } ?: emptyList(),
                 currency = o.optString("currency", "EUR"),
                 ref = o.optJSONObject("ref")?.let { RefInfo(it.optString("code"), it.optInt("days", 7), it.optInt("invited"), it.optInt("rewarded")) },
@@ -94,4 +113,4 @@ data class Account(
     }
 }
 
-private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }.filter { it.isNotBlank() }
+internal fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else (0 until length()).map { optString(it) }.filter { it.isNotBlank() }

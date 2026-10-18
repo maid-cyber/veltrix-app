@@ -145,7 +145,7 @@ fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit,
             }
         }
 
-        if (on) {
+        if (on && acc?.features?.speedtest != false) {
             Text(
                 t("Test speed →", "Izmjeri brzinu →"), color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.Medium,
                 modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp).clip(RoundedCornerShape(8.dp)).clickable(onClick = onSpeed).padding(8.dp),

@@ -256,7 +256,9 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
     var running by remember { mutableStateOf(false) }
     var log by remember { mutableStateOf("") }
     var tick by remember { mutableStateOf(0) }
+    val feat = vm.account.collectAsState().value?.features ?: com.veltrix.vpn.data.Features()
     LaunchedEffect(tick) {
+        if (!feat.diag) return@LaunchedEffect
         running = true
         results = null
         results = com.veltrix.vpn.data.Diagnostics.run(vm.currentServer(), status == com.veltrix.vpn.bg.Status.Started)
@@ -264,7 +266,8 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
         running = false
     }
     Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-        SubHeader(t("Connection test", "Dijagnostika veze"), onBack)
+        SubHeader(if (feat.diag) t("Connection test", "Dijagnostika veze") else t("Speed test", "Test brzine"), onBack)
+        if (feat.diag) {
         Text(
             if (status == com.veltrix.vpn.bg.Status.Started) t("VPN is connected. Testing traffic through it.", "VPN je spojen. Testiram promet kroz njega.")
             else t("Connect the VPN first to test traffic through it.", "Spoji VPN pa ponovi test da provjerim i promet kroz njega."),
@@ -302,7 +305,8 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 }
             }
         }
-        if (status == com.veltrix.vpn.bg.Status.Started) {
+        }
+        if (status == com.veltrix.vpn.bg.Status.Started && feat.speedtest) {
             var speed by remember { mutableStateOf<String?>(null) }
             var speedRun by remember { mutableStateOf(false) }
             val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -323,12 +327,14 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 }
             }
         }
+        if (feat.diag) {
         Text(t("VPN engine log", "Log VPN motora"), color = C.soft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp))
         Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth()) {
             Text(
                 log.ifBlank { t("Empty. Connect the VPN to create a log.", "Prazno. Spoji VPN da nastane log.") },
                 color = C.soft, fontSize = 10.sp, fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace, modifier = Modifier.padding(12.dp),
             )
+        }
         }
         Spacer(Modifier.height(24.dp))
     }

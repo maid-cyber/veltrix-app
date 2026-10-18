@@ -50,10 +50,24 @@ class MainViewModel : ViewModel() {
     val updateDismissed = MutableStateFlow(false)
     /** null = ne skida se; 0..1 = napredak skidanja */
     val updateProgress = MutableStateFlow<Float?>(null)
+    /** Ekran prijave: šta je admin uključio (probni nalog, kod prijatelja). */
+    val loginCfg = MutableStateFlow(com.veltrix.vpn.data.LoginConfig())
+    /** Panel traži noviju verziju aplikacije (poruka), null = ova verzija radi. */
+    val mustUpdate = MutableStateFlow<String?>(null)
+    /** Povećava se kad panel promijeni jezik, pa aktivnost iscrta ekran ponovo. */
+    val langChanged = MutableStateFlow(0)
+    var langHandled = 0
 
     init {
-        checkUpdate()
+        account.value?.let { applyFeatures(it.features) }
+        if (account.value?.features?.updates != false) checkUpdate()
         if (loggedIn.value) refresh(silent = true)
+        viewModelScope.launch {
+            runCatching { com.veltrix.vpn.data.LoginConfig.parse(Api.config()) }.getOrNull()?.let { c ->
+                loginCfg.value = c
+                if (!loggedIn.value) applyFeatures(c.features)
+            }
+        }
         // brzina: bajtovi koje je aplikacija (VPN motor) prenijela u zadnjoj sekundi
         viewModelScope.launch {
             val uid = Process.myUid()
@@ -92,6 +106,7 @@ class MainViewModel : ViewModel() {
                 Store.accountJson = json
                 account.value = acc
                 sec.value = SecurityOptions.from(acc)
+                applyFeatures(acc.features)
                 loggedIn.value = true
                 message.value = null
                 pingAll()
@@ -136,19 +151,30 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    /** Prekidači iz panela: jezik, obavijesti, obavezno ažuriranje. */
+    private fun applyFeatures(f: com.veltrix.vpn.data.Features) {
+        val langBefore = Store.bosnian()
+        Store.applyFeatures(f)
+        mustUpdate.value = if (f.minAndroid > com.veltrix.vpn.BuildConfig.VERSION_CODE) f.updateMsg.ifBlank { t("This version no longer works. Please update.", "Ova verzija aplikacije više ne radi. Ažuriraj na novu verziju.") } else null
+        if (mustUpdate.value != null && update.value == null) checkUpdate()
+        if (Store.bosnian() != langBefore) langChanged.value++
+    }
+
     // ------------------------------------------------------------ automatski protokol: ako VLESS ne prolazi, probaj Shadowsocks
     private var fallbackSS = false
-    private fun effectiveProtocol() = if (fallbackSS && protocol.value == "auto") "shadowsocks" else protocol.value
+    /** Kad admin isključi izbor protokola, uvijek Automatski. */
+    private fun chosenProtocol() = if (account.value?.features?.protocol == false) "auto" else protocol.value
+    private fun effectiveProtocol() = if (fallbackSS && chosenProtocol() == "auto") "shadowsocks" else chosenProtocol()
     private fun watchConnection() {
         viewModelScope.launch {
             var n = 0
             while (status.value != Status.Started && n++ < 100) delay(100)
-            if (status.value != Status.Started || protocol.value != "auto" || fallbackSS) return@launch
+            if (status.value != Status.Started || chosenProtocol() != "auto" || fallbackSS) return@launch
             delay(2500)
             if (status.value != Status.Started) return@launch
             val ok = com.veltrix.vpn.data.Diagnostics.vpnWorks() || run { delay(3000); com.veltrix.vpn.data.Diagnostics.vpnWorks() }
             val server = currentServer()
-            if (!ok && server != null && server.has("shadowsocks")) {
+            if (!ok && server != null && server.has("shadowsocks") && account.value?.features?.ssFallback != false) {
                 fallbackSS = true
                 message.value = t("VLESS is blocked on this network. Switching to Shadowsocks…", "VLESS ne prolazi na ovoj mreži. Prebacujem na Shadowsocks…")
                 reconnect()
@@ -169,6 +195,7 @@ class MainViewModel : ViewModel() {
                 val acc = Account.parse(json)
                 account.value = acc
                 sec.value = SecurityOptions.from(acc)
+                applyFeatures(acc.features)
                 Notifier.expiry(App.application, acc)
                 pingAll()
             } catch (e: Exception) {
@@ -249,6 +276,7 @@ class MainViewModel : ViewModel() {
     fun prepare(): Boolean {
         val acc = account.value
         if (acc == null) { message.value = t("Log in first.", "Prvo se prijavi."); return false }
+        mustUpdate.value?.let { message.value = it; return false }
         if (!acc.canConnect) {
             message.value = when (acc.status) {
                 "expired", "grace" -> t("Your subscription has expired. Renew it to connect.", "Pretplata je istekla. Produži je da se možeš spojiti.")

@@ -10,6 +10,19 @@ import java.net.URL
 import org.json.JSONObject
 
 object Api {
+    private val UA = "VeltrixVPN/Android/${com.veltrix.vpn.BuildConfig.VERSION_CODE}"
+
+    /** Podešavanja iz panela za ekran prijave (probni nalog, kod prijatelja, obavezno ažuriranje). */
+    suspend fun config(): String = withContext(Dispatchers.IO) {
+        val c = URL("${com.veltrix.vpn.BuildConfig.PANEL_URL}/app/config").openConnection() as HttpURLConnection
+        c.connectTimeout = 8000; c.readTimeout = 10000
+        c.setRequestProperty("User-Agent", UA)
+        try {
+            if (c.responseCode != 200) throw IllegalStateException("HTTP ${c.responseCode}")
+            c.inputStream.bufferedReader().use { it.readText() }
+        } finally { c.disconnect() }
+    }
+
     /** Iz bilo čega što kupac zalijepi (link, link sa /app, veltrix://import?url=…) napravi pretplatni link. */
     fun normalize(input: String): String? {
         var t = input.trim()
@@ -22,7 +35,7 @@ object Api {
         val c = URL("$link/app").openConnection() as HttpURLConnection
         c.connectTimeout = 10000
         c.readTimeout = 15000
-        c.setRequestProperty("User-Agent", "VeltrixVPN/Android")
+        c.setRequestProperty("User-Agent", UA)
         try {
             val code = c.responseCode
             if (code == 404) throw IllegalStateException("not_found")
@@ -38,7 +51,7 @@ object Api {
         c.connectTimeout = 10000; c.readTimeout = 20000
         c.requestMethod = "POST"; c.doOutput = true
         c.setRequestProperty("Content-Type", "application/json")
-        c.setRequestProperty("User-Agent", "VeltrixVPN/Android")
+        c.setRequestProperty("User-Agent", UA)
         try {
             c.outputStream.use { it.write(body.toByteArray()) }
             val code = c.responseCode

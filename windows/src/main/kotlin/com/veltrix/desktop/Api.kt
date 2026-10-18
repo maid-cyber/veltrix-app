@@ -21,13 +21,18 @@ object Api {
         return m.groupValues[1]
     }
 
+    private val UA = "VeltrixVPN/Windows/${BuildInfo.BUILD}"
+
     suspend fun fetch(link: String): String = get("$link/app")
+
+    /** Podešavanja iz panela za ekran prijave (probni nalog, obavezno ažuriranje). */
+    suspend fun config(): String = get("${BuildInfo.PANEL_URL}/app/config")
 
     suspend fun get(url: String, accept: String? = null): String = withContext(Dispatchers.IO) {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 10000
         c.readTimeout = 15000
-        c.setRequestProperty("User-Agent", "VeltrixVPN/Windows")
+        c.setRequestProperty("User-Agent", UA)
         if (accept != null) c.setRequestProperty("Accept", accept)
         try {
             val code = c.responseCode
@@ -42,7 +47,7 @@ object Api {
     private suspend fun postJson(url: String, body: String): Pair<Int, org.json.JSONObject> = withContext(Dispatchers.IO) {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 10000; c.readTimeout = 20000; c.requestMethod = "POST"; c.doOutput = true
-        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", "VeltrixVPN/Windows")
+        c.setRequestProperty("Content-Type", "application/json"); c.setRequestProperty("User-Agent", UA)
         try {
             c.outputStream.use { it.write(body.toByteArray()) }
             val code = c.responseCode

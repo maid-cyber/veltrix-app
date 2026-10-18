@@ -95,7 +95,22 @@ object Store {
         get() = prefs.getString("ref_in", "") ?: ""
         set(v) = prefs.edit().putString("ref_in", v).apply()
 
-    fun bosnian(): Boolean = when (lang) {
+    /** Iz panela (stranica Aplikacija): zadani jezik, smije li kupac birati jezik, obavijesti. */
+    var adminLang: String
+        get() = prefs.getString("admin_lang", "auto") ?: "auto"
+        set(v) = prefs.edit().putString("admin_lang", v).apply()
+    var langLocked: Boolean
+        get() = prefs.getBoolean("lang_locked", false)
+        set(v) = prefs.edit().putBoolean("lang_locked", v).apply()
+    var featNotify: Boolean
+        get() = prefs.getBoolean("feat_notify", true)
+        set(v) = prefs.edit().putBoolean("feat_notify", v).apply()
+
+    fun applyFeatures(f: Features) {
+        adminLang = f.langDefault; langLocked = !f.language; featNotify = f.notify
+    }
+
+    fun bosnian(): Boolean = when (if (langLocked || lang == "auto") adminLang else lang) {
         "bs" -> true
         "en" -> false
         else -> Locale.getDefault().language in setOf("bs", "hr", "sr", "sh", "me")

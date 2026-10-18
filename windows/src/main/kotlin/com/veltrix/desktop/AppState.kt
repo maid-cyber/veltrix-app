@@ -247,7 +247,14 @@ class AppState(private val demo: Account? = null) {
     // ------------------------------------------------------------ nova verzija (GitHub Releases, tag win-N)
     fun checkUpdate(manual: Boolean = false) {
         scope.launch {
-            val u = runCatching {
+            // prvo panel (/app/config → /download/windows), GitHub samo ako panel ne odgovara
+            val base = Store.link.substringBefore("/s/", "").ifBlank { BuildInfo.PANEL_URL }.trimEnd('/')
+            val fromPanel = runCatching {
+                val l = org.json.JSONObject(Api.get("$base/app/config")).optJSONObject("latest")
+                val b = l?.optInt("windows") ?: 0
+                if (b > 0) Triple(true, b, base + (l?.optString("windows_url") ?: "/download/windows")) else null
+            }.getOrNull()
+            val u = if (fromPanel != null) { if (fromPanel.second > BuildInfo.BUILD) UpdateInfo(fromPanel.second, "1.0.${fromPanel.second}", fromPanel.third) else null } else runCatching {
                 val arr = JSONArray(Api.get("https://api.github.com/repos/${BuildInfo.UPDATE_REPO}/releases?per_page=20", "application/vnd.github+json"))
                 (0 until arr.length()).map { arr.getJSONObject(it) }
                     .filter { !it.optBoolean("draft") && it.optString("tag_name").startsWith("win-") }

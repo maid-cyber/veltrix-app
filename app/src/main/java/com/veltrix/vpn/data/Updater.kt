@@ -24,12 +24,30 @@ object Updater {
         setRequestProperty("User-Agent", "VeltrixVPN/Android")
     }
 
-    /** Vraća novu verziju ako postoji, inače null. */
+    /** Adresa panela: iz linka naloga (https://…/s/TOKEN), inače ugrađena. */
+    private fun panelBase(): String = Store.link.substringBefore("/s/", "").ifBlank { BuildConfig.PANEL_URL }.trimEnd('/')
+
+    /** Nova verzija sa panela (/app/config → /download/android); GitHub samo ako panel ne odgovara. */
     suspend fun check(): UpdateInfo? = withContext(Dispatchers.IO) {
+        runCatching {
+            val base = panelBase()
+            val c = open("$base/app/config")
+            try {
+                if (c.responseCode == 200) {
+                    val l = org.json.JSONObject(c.inputStream.bufferedReader().use { it.readText() }).optJSONObject("latest")
+                    val b = l?.optInt("android") ?: 0
+                    if (b > 0) return@withContext if (b > BuildConfig.VERSION_CODE) UpdateInfo(b, "0.1.$b", base + l!!.optString("android_url", "/download/android"), 0, "") else null
+                }
+            } finally { c.disconnect() }
+        }
+        checkGithub()
+    }
+
+    private fun checkGithub(): UpdateInfo? {
         val c = open("https://api.github.com/repos/${BuildConfig.UPDATE_REPO}/releases?per_page=5")
         c.setRequestProperty("Accept", "application/vnd.github+json")
         try {
-            if (c.responseCode != 200) return@withContext null
+            if (c.responseCode != 200) return null
             val arr = JSONArray(c.inputStream.bufferedReader().use { it.readText() })
             var best: UpdateInfo? = null
             for (i in 0 until arr.length()) {
@@ -42,7 +60,9 @@ object Updater {
                     best = UpdateInfo(build, "0.1.$build", apk.optString("browser_download_url"), apk.optLong("size"), r.optString("body"))
                 }
             }
-            best?.takeIf { it.build > BuildConfig.VERSION_CODE }
+            return best?.takeIf { it.build > BuildConfig.VERSION_CODE }
+        } catch (e: Exception) {
+            return null
         } finally {
             c.disconnect()
         }

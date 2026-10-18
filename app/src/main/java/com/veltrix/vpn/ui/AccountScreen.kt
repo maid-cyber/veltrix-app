@@ -150,7 +150,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
         GroupTitle(t("Account", "Račun"))
         SecGroup {
             if (acc?.renew?.isNotEmpty() == true) {
-                SecRow(Icons.Outlined.CreditCard, t("Renew subscription", "Produži pretplatu"), t("Pay by card, days are added right away", "Plati karticom, dani se dodaju odmah"), trailing = { Chev() }, onClick = { dialog = "renew" })
+                SecRow(Icons.Outlined.CreditCard, t("Renew subscription", "Produži pretplatu"), t("PayPal or card, days are added right away", "PayPal ili kartica, dani se dodaju odmah"), trailing = { Chev() }, onClick = { dialog = "renew" })
             }
             acc?.ref?.let { r ->
                 SecRow(Icons.Outlined.CardGiftcard, t("Invite a friend", "Pozovi prijatelja"), t("You both get ${r.days} free days", "Obojica dobijete ${r.days} dana gratis"), trailing = { Chev() }, onClick = { dialog = "ref" })
@@ -251,7 +251,7 @@ fun AccountScreen(vm: MainViewModel, onSub: (String) -> Unit) {
                     Text(a!!.currencySign + (if (p.price % 1.0 == 0.0) p.price.toInt().toString() else String.format("%.2f", p.price)), color = C.redHi, fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            Text(t("Secure payment by Stripe.", "Sigurno plaćanje preko Stripea."), color = C.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
+            Text(t("Secure payment. We never see your card details.", "Sigurno plaćanje. Podatke kartice ne vidimo."), color = C.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
         }
         "ref" -> Dlg(t("Invite a friend", "Pozovi prijatelja"), { dialog = "" }) {
             val r = acc?.ref

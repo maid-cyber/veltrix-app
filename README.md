@@ -23,3 +23,9 @@ GPLv3. VPN dio (`app/src/main/java/com/veltrix/vpn/bg`) je preuzet i prilagođen
 [sing-box](https://github.com/SagerNet/sing-box) (GPLv3). Kod ove aplikacije mora ostati dostupan pod istom licencom.
 
 Probni ključ za potpis (`app/veltrix-test.jks`) je samo za testiranje. Za prave kupce napravi novi ključ i čuvaj ga u GitHub tajnama.
+
+## iPhone (ios/)
+
+SwiftUI aplikacija + Packet Tunnel (sing-box libbox), projekat se pravi XcodeGenom (`ios/project.yml`).
+GitHub Actions (`.github/workflows/ios.yml`, macOS) izgradi libbox za iOS i aplikaciju **bez potpisa** (`ios-N` u Releases).
+Za instalaciju na iPhone treba potpis sa Apple Developer nalogom (Network Extension dozvola); besplatni nalog ne može pokrenuti VPN tunel.

@@ -1,0 +1,103 @@
+name: iOS app
+
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  SING_BOX_VERSION: v1.13.21
+  # iOS tunel ima malo memorije (oko 50 MB), zato with_low_memory
+  LIBBOX_TAGS: with_gvisor,with_quic,with_utls,with_clash_api,with_low_memory,badlinkname,tfogo_checklinkname0
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      # VPN motor (sing-box libbox) za iPhone, čuva se u kešu (gradnja traje dugo)
+      - name: Cache libbox
+        id: libbox
+        uses: actions/cache/restore@v4
+        with:
+          path: ios/Frameworks/Libbox.xcframework
+          key: libbox-ios-${{ env.SING_BOX_VERSION }}-v1
+
+      - uses: actions/setup-go@v5
+        if: steps.libbox.outputs.cache-hit != 'true'
+        with:
+          go-version: '1.24.7'
+          cache: false
+
+      - name: Build libbox (iOS)
+        if: steps.libbox.outputs.cache-hit != 'true'
+        run: |
+          set -e
+          go install github.com/sagernet/gomobile/cmd/gomobile@v0.1.12
+          go install github.com/sagernet/gomobile/cmd/gobind@v0.1.12
+          export PATH=$PATH:$(go env GOPATH)/bin
+          git clone --depth 1 --branch $SING_BOX_VERSION https://github.com/SagerNet/sing-box /tmp/sing-box
+          cd /tmp/sing-box
+          gomobile bind -v -o Libbox.xcframework -target ios -libname=box -trimpath -buildvcs=false \
+            -ldflags "-X github.com/sagernet/sing-box/constant.Version=${SING_BOX_VERSION#v} -X internal/godebug.defaultGODEBUG=multipathtcp=0 -s -w -buildid= -checklinkname=0" \
+            -tags "$LIBBOX_TAGS" ./experimental/libbox
+          mkdir -p $GITHUB_WORKSPACE/ios/Frameworks
+          cp -R Libbox.xcframework $GITHUB_WORKSPACE/ios/Frameworks/
+
+      - name: Save libbox
+        if: steps.libbox.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ios/Frameworks/Libbox.xcframework
+          key: ${{ steps.libbox.outputs.cache-primary-key }}
+
+      - name: Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen >/dev/null
+          xcodegen generate
+
+      # bez potpisa: .ipa se potpisuje kasnije (Apple Developer nalog, Sideloadly, AltStore…)
+      - name: Build app
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild -project VeltrixVPN.xcodeproj -target VeltrixVPN -configuration Release -sdk iphoneos \
+            SYMROOT=$PWD/build CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build 2>&1 | tee build.log | grep -E "error:|warning: unre|BUILD|\*\*" || true
+          test -d build/Release-iphoneos/VeltrixVPN.app
+
+      - name: Report errors
+        if: failure()
+        working-directory: ios
+        run: |
+          grep -E "error:" -A3 build.log | head -150 > err.txt || true
+          python3 - <<'PY'
+          lines = open('err.txt', encoding='utf-8', errors='ignore').read().splitlines()
+          for i in range(0, len(lines), 12):
+              print('::error::' + '%0A'.join(l.replace('%', '%25') for l in lines[i:i+12]))
+          PY
+
+      - name: Package .ipa
+        working-directory: ios
+        run: |
+          mkdir -p out/Payload
+          cp -R build/Release-iphoneos/VeltrixVPN.app out/Payload/
+          ls out/Payload/VeltrixVPN.app/PlugIns
+          cd out && zip -qr Veltrix-VPN-iOS-1.0.${{ github.run_number }}-unsigned.ipa Payload
+          ls -la
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-${{ github.run_number }}
+          name: Veltrix VPN za iPhone 1.0.${{ github.run_number }} (bez potpisa)
+          body: |
+            iPhone aplikacija bez potpisa. Za instalaciju treba potpis (Apple Developer nalog). Bez plaćenog naloga VPN tunel neće raditi.
+          files: ios/out/*.ipa

@@ -60,8 +60,9 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
     val all = acc?.servers.orEmpty()
     // kategorije: prikazuju se samo one koje imaju bar jedan server
     val cats = listOf(
-        "all" to t("All", "Svi"), "fav" to t("Favorites", "Omiljeni"), "p2p" to "P2P / Torrent", "streaming" to "Streaming",
-        "gaming" to "Gaming", "double" to "Double VPN", "multihop" to "Multihop", "special" to t("Special", "Specijalni"),
+        "all" to t("All", "Svi"), "fav" to t("Favorites", "Omiljeni"), "dedicated" to t("Dedicated IP", "Moja IP (Dedicated)"),
+        "streaming" to "Streaming", "gaming" to "Gaming", "p2p" to "P2P / Torrent", "static" to t("Static IP", "Statička IP"),
+        "obfuscated" to t("Obfuscated", "Zaštita od blokada"), "double" to "Double VPN", "multihop" to "Multihop", "special" to t("Special", "Specijalni"),
     ).filter { (k, _) -> k == "all" || k == "fav" || all.any { k in it.tags || it.kind == k } }
     val list = all
         .filter {
@@ -158,6 +159,7 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
 
 fun tagName(k: String) = when (k) {
     "p2p" -> "P2P"; "streaming" -> "Streaming"; "gaming" -> "Gaming"; "special" -> t("Special", "Specijalni")
+    "static" -> t("Static IP", "Statička IP"); "dedicated" -> t("Your dedicated IP", "Tvoja IP"); "obfuscated" -> t("Obfuscated", "Zaštita od blokada")
     "double" -> "Double VPN"; "multihop" -> "Multihop"; else -> k
 }
 

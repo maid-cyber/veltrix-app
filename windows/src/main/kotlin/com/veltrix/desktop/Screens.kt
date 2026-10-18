@@ -408,8 +408,9 @@ private fun LocationsScreen(state: AppState, onPicked: () -> Unit) {
     var cat by remember { mutableStateOf("all") }
     val all = acc?.servers.orEmpty()
     val cats = listOf(
-        "all" to t("All", "Svi"), "fav" to t("Favorites", "Omiljeni"), "p2p" to "P2P / Torrent", "streaming" to "Streaming",
-        "gaming" to "Gaming", "double" to "Double VPN", "multihop" to "Multihop", "special" to t("Special", "Specijalni"),
+        "all" to t("All", "Svi"), "fav" to t("Favorites", "Omiljeni"), "dedicated" to t("Dedicated IP", "Moja IP (Dedicated)"),
+        "streaming" to "Streaming", "gaming" to "Gaming", "p2p" to "P2P / Torrent", "static" to t("Static IP", "Statička IP"),
+        "obfuscated" to t("Obfuscated", "Zaštita od blokada"), "double" to "Double VPN", "multihop" to "Multihop", "special" to t("Special", "Specijalni"),
     ).filter { (k, _) -> k == "all" || k == "fav" || all.any { k in it.tags || it.kind == k } }
     val list = all.filter {
         when (cat) { "all" -> !it.isChain; "fav" -> it.id in favs; "double", "multihop" -> it.kind == cat; else -> cat in it.tags }

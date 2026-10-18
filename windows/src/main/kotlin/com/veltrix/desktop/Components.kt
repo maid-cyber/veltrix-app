@@ -225,6 +225,7 @@ fun fmtSpeed(bps: Long): Pair<String, String> {
 
 fun tagName(k: String) = when (k) {
     "p2p" -> "P2P"; "streaming" -> "Streaming"; "gaming" -> "Gaming"; "special" -> t("Special", "Specijalni")
+    "static" -> t("Static IP", "Statička IP"); "dedicated" -> t("Your dedicated IP", "Tvoja IP"); "obfuscated" -> t("Obfuscated", "Zaštita od blokada")
     "double" -> "Double VPN"; "multihop" -> "Multihop"; else -> k
 }
 

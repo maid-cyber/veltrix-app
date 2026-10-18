@@ -108,7 +108,7 @@ object Core {
         val l = log()
         return when {
             "Access is denied" in l || "access denied" in l.lowercase() || "elevat" in l.lowercase() ->
-                if (Store.bosnian()) "Pokreni Veltrix VPN kao administrator." else "Run Veltrix VPN as administrator."
+                if (Store.bosnian()) "Pokreni AdiLink VPN kao administrator." else "Run AdiLink VPN as administrator."
             else -> l.lines().lastOrNull { "FATAL" in it || "ERROR" in it }?.substringAfter("] ")?.take(200)
                 ?: (if (Store.bosnian()) "VPN motor se ugasio." else "VPN engine stopped.")
         }

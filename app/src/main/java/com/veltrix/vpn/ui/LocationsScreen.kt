@@ -78,7 +78,7 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
     val tab = if (cat == "fav") 1 else 0
 
     Column(Modifier.fillMaxSize()) {
-        TopBar(acc?.brand ?: "Veltrix VPN", Icons.Outlined.Refresh) { vm.refresh() }
+        TopBar(acc?.brand ?: "AdiLink VPN", Icons.Outlined.Refresh) { vm.refresh() }
         SectionTitle(t("Locations", "Lokacije"))
         Spacer(Modifier.height(12.dp))
 

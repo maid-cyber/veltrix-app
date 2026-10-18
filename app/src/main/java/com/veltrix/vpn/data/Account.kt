@@ -33,7 +33,7 @@ fun flagOf(country: String): String = if (country.length == 2 && country.all { i
     String(Character.toChars(0x1F1E6 + (country[0] - 'A'))) + String(Character.toChars(0x1F1E6 + (country[1] - 'A')))
 } else "🌐"
 
-/** Funkcije koje je admin uključio u panelu (Postavke → Veltrix aplikacija). */
+/** Funkcije koje je admin uključio u panelu (Postavke → Aplikacija). */
 data class Features(
     val killswitch: Boolean = true, val dns: Boolean = true, val dnsDefault: Boolean = true, val split: Boolean = true,
     val ipleak: Boolean = true, val ipleakDefault: Boolean = true, val webrtc: Boolean = true, val webrtcDefault: Boolean = true,
@@ -111,7 +111,7 @@ data class Account(
                 )
             }
             return Account(
-                brand = o.optString("brand", "Veltrix VPN"), support = o.optString("support"), announce = o.optString("announce"),
+                brand = o.optString("brand", "AdiLink VPN"), support = o.optString("support"), announce = o.optString("announce"),
                 username = o.optString("username"), plan = o.optString("plan"), status = o.optString("status"),
                 canConnect = o.optBoolean("can_connect"), expiresAt = o.optLong("expires_at"), createdAt = o.optLong("created_at"),
                 trafficUsed = o.optLong("traffic_used"), trafficLimit = o.optLong("traffic_limit"), devices = o.optInt("devices", 1),

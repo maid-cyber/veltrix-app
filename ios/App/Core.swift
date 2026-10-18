@@ -114,7 +114,7 @@ struct Account {
         }
         func i64(_ k: String) -> Int64 { (o[k] as? NSNumber)?.int64Value ?? 0 }
         return Account(
-            brand: o["brand"] as? String ?? "Veltrix VPN", support: o["support"] as? String ?? "", announce: o["announce"] as? String ?? "",
+            brand: o["brand"] as? String ?? "AdiLink VPN", support: o["support"] as? String ?? "", announce: o["announce"] as? String ?? "",
             username: o["username"] as? String ?? "", plan: o["plan"] as? String ?? "", status: o["status"] as? String ?? "",
             canConnect: (o["can_connect"] as? NSNumber)?.boolValue ?? false, expiresAt: (o["expires_at"] as? NSNumber)?.doubleValue ?? 0,
             trafficUsed: i64("traffic_used"), trafficLimit: i64("traffic_limit"), devices: (o["devices"] as? NSNumber)?.intValue ?? 1,

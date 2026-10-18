@@ -50,9 +50,10 @@ struct ShieldLogo: View {
             inner.addLine(to: pt(26, 50)); inner.closeSubpath()
             ctx.fill(outer, with: .color(.vred))
             ctx.fill(inner, with: .color(Color(red: 0.07, green: 0.07, blue: 0.086)))
-            ctx.fill(poly([(48, 70), (80, 70), (100, 138), (100, 184)]), with: .color(.vred))
-            ctx.fill(poly([(152, 70), (120, 70), (100, 138), (100, 184)]), with: .color(Color(red: 0.62, green: 0.05, blue: 0.10)))
-            ctx.fill(poly([(86, 58), (114, 58), (100, 96)]), with: .color(.vredHi))
+            ctx.fill(poly([(100, 52), (100, 104), (82, 164), (54, 164)]), with: .color(.vred))
+            ctx.fill(poly([(100, 52), (146, 164), (118, 164), (100, 104)]), with: .color(Color(red: 0.62, green: 0.05, blue: 0.10)))
+            ctx.fill(poly([(100, 52), (111, 78), (89, 78)]), with: .color(.vredHi))
+            ctx.fill(poly([(90.5, 128), (109.5, 128), (114, 142), (86, 142)]), with: .color(.vredHi))
         }
         .frame(width: size, height: size * 1.12)
     }
@@ -119,7 +120,7 @@ struct LoginView: View {
                 Spacer(minLength: 40)
                 ShieldLogo(size: 96)
                 VStack(spacing: 4) {
-                    Text("VELTRIX").font(.system(size: 34, weight: .black)).kerning(3)
+                    Text("ADILINK").font(.system(size: 34, weight: .black)).kerning(3)
                     Text("V P N").font(.system(size: 14, weight: .semibold)).foregroundColor(.vredHi).kerning(4)
                 }
                 Text(t("Scan the QR code or paste the access link you received after purchase.", "Skeniraj QR kod ili zalijepi pristupni link koji si dobio nakon kupovine."))
@@ -168,7 +169,7 @@ struct HomeView: View {
             VStack(spacing: 22) {
                 HStack {
                     ShieldLogo(size: 30)
-                    Text(model.account?.brand ?? "Veltrix VPN").font(.system(size: 20, weight: .bold))
+                    Text(model.account?.brand ?? "AdiLink VPN").font(.system(size: 20, weight: .bold))
                     Spacer()
                     Button { Task { await model.refresh() } } label: { Image(systemName: "arrow.clockwise").foregroundColor(.soft) }
                 }
@@ -313,7 +314,7 @@ struct AccountView: View {
                     Divider().background(Color.line)
                     action("rectangle.portrait.and.arrow.right", t("Log out", "Odjava")) { confirmLogout = true }
                 }
-                Text("Veltrix VPN · iOS build \(AppConst.build) · sing-box (GPLv3)").font(.system(size: 12)).foregroundColor(.muted)
+                Text("AdiLink VPN · iOS build \(AppConst.build) · sing-box (GPLv3)").font(.system(size: 12)).foregroundColor(.muted)
             }
             .padding(20)
         }

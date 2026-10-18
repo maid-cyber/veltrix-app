@@ -14,7 +14,7 @@ object Shots {
     fun srv(id: Int, name: String, city: String, cc: String, tags: List<String> = emptyList(), kind: String = "server", hops: List<Pair<String, String>> = emptyList()) =
         Server(id, name, city, cc, "10.0.0.$id", 443, vless, kind, tags, hops)
     val demo = Account(
-        brand = "Veltrix VPN", support = "@veltrixvpn", announce = "", username = "maid", plan = "Premium 30 dana", status = "active", canConnect = true,
+        brand = "AdiLink VPN", support = "@adilinkvpn", announce = "", username = "maid", plan = "Premium 30 dana", status = "active", canConnect = true,
         expiresAt = System.currentTimeMillis() + 24L * 86_400_000, createdAt = System.currentTimeMillis() - 40L * 86_400_000,
         trafficUsed = 12L shl 30, trafficLimit = 0, devices = 3,
         servers = listOf(

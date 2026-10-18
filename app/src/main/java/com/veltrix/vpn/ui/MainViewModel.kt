@@ -324,7 +324,7 @@ class MainViewModel : ViewModel() {
         val u = update.value ?: return
         val ctx = App.application
         if (!Updater.canInstall(ctx)) {
-            message.value = t("Allow installing updates for Veltrix VPN, then tap Update again.", "Dozvoli instaliranje za Veltrix VPN, pa ponovo klikni Ažuriraj.")
+            message.value = t("Allow installing updates for AdiLink VPN, then tap Update again.", "Dozvoli instaliranje za AdiLink VPN, pa ponovo klikni Ažuriraj.")
             Updater.openInstallPermission(ctx)
             return
         }

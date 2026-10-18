@@ -97,7 +97,7 @@ data class Account(
                 )
             }
             return Account(
-                brand = o.optString("brand", "Veltrix VPN"), support = o.optString("support"), announce = o.optString("announce"),
+                brand = o.optString("brand", "AdiLink VPN"), support = o.optString("support"), announce = o.optString("announce"),
                 username = o.optString("username"), plan = o.optString("plan"), status = o.optString("status"),
                 canConnect = o.optBoolean("can_connect"), expiresAt = o.optLong("expires_at"), createdAt = o.optLong("created_at"),
                 trafficUsed = o.optLong("traffic_used"), trafficLimit = o.optLong("traffic_limit"), devices = o.optInt("devices", 1),

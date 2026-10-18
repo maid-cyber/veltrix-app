@@ -300,7 +300,7 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
                 BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false) {
                     val text = (results.orEmpty().joinToString("\n") { (if (it.ok) "OK  " else "ERR ") + it.name + ": " + it.detail }) + "\n\n" + log
                     val cm = ctx.getSystemService(android.content.ClipboardManager::class.java)
-                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("Veltrix", text))
+                    cm?.setPrimaryClip(android.content.ClipData.newPlainText("AdiLink", text))
                     android.widget.Toast.makeText(ctx, t("Copied", "Kopirano"), android.widget.Toast.LENGTH_SHORT).show()
                 }
             }

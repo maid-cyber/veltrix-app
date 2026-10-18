@@ -294,7 +294,7 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(48.dp))
             Logo(110.dp)
             Spacer(Modifier.height(20.dp))
-            Text("VELTRIX", color = C.text, fontSize = 36.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+            Text("ADILINK", color = C.text, fontSize = 36.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
             Text("V P N", color = C.redHi, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
             Spacer(Modifier.height(28.dp))
             Text(

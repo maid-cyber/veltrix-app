@@ -63,7 +63,7 @@ fun SecurityScreen(vm: MainViewModel, onApps: () -> Unit) {
     var ksDialog by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        TopBar(acc?.brand ?: "Veltrix VPN", Icons.Outlined.Refresh) { vm.refresh() }
+        TopBar(acc?.brand ?: "AdiLink VPN", Icons.Outlined.Refresh) { vm.refresh() }
         SectionTitle(t("Security", "Sigurnost"))
         Text(
             t("Changes apply right away. If you are connected, the VPN reconnects in a second.", "Promjene važe odmah. Ako si spojen, VPN se ponovo spoji za sekundu."),
@@ -145,8 +145,8 @@ fun SecurityScreen(vm: MainViewModel, onApps: () -> Unit) {
             text = {
                 Text(
                     t(
-                        "Android has a built-in kill switch. In the next screen tap the gear next to Veltrix VPN, then turn on:\n\n1. Always-on VPN\n2. Block connections without VPN\n\nAfter that, apps have no internet unless the VPN is connected.",
-                        "Android ima ugrađen Kill Switch. Na sljedećem ekranu dodirni zupčanik pored Veltrix VPN, pa uključi:\n\n1. Uvijek uključen VPN\n2. Blokiraj veze bez VPN-a\n\nPoslije toga aplikacije nemaju internet ako VPN nije spojen.",
+                        "Android has a built-in kill switch. In the next screen tap the gear next to AdiLink VPN, then turn on:\n\n1. Always-on VPN\n2. Block connections without VPN\n\nAfter that, apps have no internet unless the VPN is connected.",
+                        "Android ima ugrađen Kill Switch. Na sljedećem ekranu dodirni zupčanik pored AdiLink VPN, pa uključi:\n\n1. Uvijek uključen VPN\n2. Blokiraj veze bez VPN-a\n\nPoslije toga aplikacije nemaju internet ako VPN nije spojen.",
                     ),
                     color = C.soft,
                 )

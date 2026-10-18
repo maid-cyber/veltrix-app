@@ -62,7 +62,7 @@ object Store {
         p.flush()
     }
 
-    /** %APPDATA%\VeltrixVPN (konfiguracija i log motora) */
+    /** %APPDATA%\VeltrixVPN (interni naziv; konfiguracija i log motora) */
     val dataDir: File by lazy {
         val base = System.getenv("APPDATA")?.let { File(it) } ?: File(System.getProperty("user.home"), ".config")
         File(base, "VeltrixVPN").apply { mkdirs() }

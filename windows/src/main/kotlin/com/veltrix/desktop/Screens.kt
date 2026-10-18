@@ -173,7 +173,7 @@ private fun Shell(state: AppState, startTab: Int) {
                 Logo(34.dp)
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text((acc?.brand ?: "Veltrix VPN").substringBefore(" VPN").uppercase(), color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Text((acc?.brand ?: "AdiLink VPN").substringBefore(" VPN").uppercase(), color = C.text, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                     Text("VPN · Windows", color = C.muted, fontSize = 12.sp)
                 }
             }
@@ -240,7 +240,7 @@ private fun LoginScreen(state: AppState) {
             Column(Modifier.padding(36.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Logo(90.dp)
                 Spacer(Modifier.height(16.dp))
-                Text("VELTRIX", color = C.text, fontSize = 32.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+                Text("ADILINK", color = C.text, fontSize = 32.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
                 Text("V P N", color = C.redHi, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 4.sp)
                 Spacer(Modifier.height(22.dp))
                 Text(t("Paste the access link you received after purchase.", "Zalijepi pristupni link koji si dobio nakon kupovine."), color = C.soft, fontSize = 14.sp, textAlign = TextAlign.Center)

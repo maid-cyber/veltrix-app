@@ -72,7 +72,7 @@ fun HomeScreen(vm: MainViewModel, onToggle: () -> Unit, onLocations: () -> Unit,
     val busy = status == Status.Starting || status == Status.Stopping
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        TopBar(acc?.brand ?: "Veltrix VPN", Icons.Outlined.Settings, onSettings)
+        TopBar(acc?.brand ?: "AdiLink VPN", Icons.Outlined.Settings, onSettings)
 
         // stanje zaštite
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {

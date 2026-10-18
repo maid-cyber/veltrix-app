@@ -3,8 +3,9 @@
     <group android:translateX="27.6" android:translateY="23.4" android:scaleX="0.264" android:scaleY="0.264">
         <path android:fillColor="#E3172B" android:pathData="M100,4 L190,38 L190,102 C190,158 154,200 100,220 C46,200 10,158 10,102 L10,38 Z" />
         <path android:fillColor="#121216" android:pathData="M100,22 L174,50 L174,102 C174,148 145,182 100,199 C55,182 26,148 26,102 L26,50 Z" />
-        <path android:fillColor="#E3172B" android:pathData="M48,70 L80,70 L100,138 L100,184 Z" />
-        <path android:fillColor="#9E0C1A" android:pathData="M152,70 L120,70 L100,138 L100,184 Z" />
-        <path android:fillColor="#FF4A5A" android:pathData="M86,58 L114,58 L100,96 Z" />
+        <path android:fillColor="#E3172B" android:pathData="M100,52 L100,104 L82,164 L54,164 Z" />
+        <path android:fillColor="#9E0C1A" android:pathData="M100,52 L146,164 L118,164 L100,104 Z" />
+        <path android:fillColor="#FF4A5A" android:pathData="M100,52 L111,78 L89,78 Z" />
+        <path android:fillColor="#FF4A5A" android:pathData="M90.5,128 L109.5,128 L114,142 L86,142 Z" />
     </group>
 </vector>

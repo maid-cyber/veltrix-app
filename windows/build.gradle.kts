@@ -44,8 +44,8 @@ compose.desktop {
             targetFormats(TargetFormat.Exe)
             packageName = "VeltrixVPN"
             packageVersion = "1.0.$build"
-            vendor = "Veltrix"
-            description = "Veltrix VPN"
+            vendor = "AdiLink"
+            description = "AdiLink VPN"
             // sing-box.exe ide uz aplikaciju (resources/windows)
             appResourcesRootDir.set(project.layout.projectDirectory.dir("resources"))
             modules("java.naming", "jdk.crypto.ec", "java.net.http")

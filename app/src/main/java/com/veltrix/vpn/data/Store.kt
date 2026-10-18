@@ -83,7 +83,7 @@ object Store {
         set(v) = prefs.edit().putBoolean("amoled", v).apply()
 
     fun brand(context: Context? = null): String =
-        runCatching { JSONObject(accountJson).optString("brand") }.getOrNull()?.takeIf { it.isNotBlank() } ?: "Veltrix VPN"
+        runCatching { JSONObject(accountJson).optString("brand") }.getOrNull()?.takeIf { it.isNotBlank() } ?: "AdiLink VPN"
 
     fun selectedName(context: Context? = null): String = selectedNameCache
 

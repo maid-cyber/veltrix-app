@@ -37,7 +37,7 @@ fun main(args: Array<String>) {
         val icon = remember { runCatching { BitmapPainter(useResource("veltrix.png", ::loadImageBitmap)) }.getOrNull() }
         Window(
             onCloseRequest = { Core.stopBlocking(); exitApplication() },
-            title = "Veltrix VPN",
+            title = "AdiLink VPN",
             icon = icon,
             state = rememberWindowState(width = 1120.dp, height = 780.dp),
         ) {

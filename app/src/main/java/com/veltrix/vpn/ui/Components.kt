@@ -65,7 +65,7 @@ object C {
 /** Tekst na bosanskom ili engleskom, prema jeziku telefona. */
 fun t(en: String, bs: String) = if (Store.bosnian()) bs else en
 
-// ---------------------------------------------------------------- logo (štit sa V)
+// ---------------------------------------------------------------- logo (štit sa A)
 private fun p(vararg pts: Float, close: Boolean = true) = Path().apply {
     moveTo(pts[0], pts[1])
     var i = 2
@@ -83,9 +83,10 @@ private val shieldInner = Path().apply {
     cubicTo(174f, 148f, 145f, 182f, 100f, 199f); cubicTo(55f, 182f, 26f, 148f, 26f, 102f)
     lineTo(26f, 50f); close()
 }
-private val vLeft = p(48f, 70f, 80f, 70f, 100f, 138f, 100f, 184f)
-private val vRight = p(152f, 70f, 120f, 70f, 100f, 138f, 100f, 184f)
-private val vTop = p(86f, 58f, 114f, 58f, 100f, 96f)
+private val vLeft = p(100f, 52f, 100f, 104f, 82f, 164f, 54f, 164f)
+private val vRight = p(100f, 52f, 146f, 164f, 118f, 164f, 100f, 104f)
+private val vTop = p(100f, 52f, 111f, 78f, 89f, 78f)
+private val aBar = p(90.5f, 128f, 109.5f, 128f, 114f, 142f, 86f, 142f)
 
 @Composable
 fun Logo(size: Dp, modifier: Modifier = Modifier) {
@@ -96,7 +97,7 @@ fun Logo(size: Dp, modifier: Modifier = Modifier) {
             drawPath(shieldInner, Color(0xFF121216))
             drawPath(vLeft, C.red)
             drawPath(vRight, C.redDark)
-            drawPath(vTop, C.redHi)
+            drawPath(vTop, C.redHi); drawPath(aBar, C.redHi)
         }
     }
 }

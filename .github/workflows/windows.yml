@@ -99,7 +99,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: win-${{ github.run_number }}
-          name: Veltrix VPN za Windows 1.0.${{ github.run_number }}
-          body: Instalacija za Windows 10/11 (64-bit). Pokreni Veltrix-VPN-Setup i prati korake.
+          name: AdiLink VPN za Windows 1.0.${{ github.run_number }}
+          body: Instalacija za Windows 10/11 (64-bit). Pokreni AdiLink-VPN-Setup i prati korake.
           files: windows/build/installer/*.exe
           prerelease: true

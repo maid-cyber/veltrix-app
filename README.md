@@ -1,7 +1,10 @@
-# Veltrix VPN (Android)
+# AdiLink VPN (Android, Windows, iPhone)
 
-Aplikacija za kupce Veltrix VPN-a. Radi sa VPN panelom (`maid-cyber/vpn-panel`):
+Aplikacija za kupce AdiLink VPN-a. Radi sa VPN panelom (`maid-cyber/vpn-panel`):
 kupac skenira QR kod ili zalijepi svoj pristupni link, a aplikacija sama dobije servere i stanje naloga.
+
+Ranije se zvala Veltrix VPN. Interni nazivi (paket `com.veltrix.vpn`, link `veltrix://`, `VeltrixVPN.exe`) namjerno su ostali isti, da se postojeće instalacije normalno nadograde.
+
 
 - **Ekrani:** Početna (veliko dugme i štit, brzina, vrijeme veze), Lokacije (zastave, ping, omiljeni, najbrži server), Moj nalog (pretplata, promet, protokol, podrška).
 - **Protokoli:** VLESS + Reality i Shadowsocks 2022, preko sing-box motora.

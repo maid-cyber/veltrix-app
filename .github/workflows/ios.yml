@@ -90,14 +90,14 @@ jobs:
           mkdir -p out/Payload
           cp -R build/Release-iphoneos/VeltrixVPN.app out/Payload/
           ls out/Payload/VeltrixVPN.app/PlugIns
-          cd out && zip -qr Veltrix-VPN-iOS-1.0.${{ github.run_number }}-unsigned.ipa Payload
+          cd out && zip -qr AdiLink-VPN-iOS-1.0.${{ github.run_number }}-unsigned.ipa Payload
           ls -la
 
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ios-${{ github.run_number }}
-          name: Veltrix VPN za iPhone 1.0.${{ github.run_number }} (bez potpisa)
+          name: AdiLink VPN za iPhone 1.0.${{ github.run_number }} (bez potpisa)
           body: |
             iPhone aplikacija bez potpisa. Za instalaciju treba potpis (Apple Developer nalog). Bez plaćenog naloga VPN tunel neće raditi.
           files: ios/out/*.ipa

@@ -2,5 +2,5 @@
     android:width="24dp" android:height="24dp" android:viewportWidth="200" android:viewportHeight="224">
     <path android:fillColor="#FFFFFF" android:fillType="evenOdd"
         android:pathData="M100,4 L190,38 L190,102 C190,158 154,200 100,220 C46,200 10,158 10,102 L10,38 Z M100,22 L174,50 L174,102 C174,148 145,182 100,199 C55,182 26,148 26,102 L26,50 Z" />
-    <path android:fillColor="#FFFFFF" android:pathData="M48,70 L80,70 L100,138 L120,70 L152,70 L100,184 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M100,52 L146,164 L118,164 L113.5,147 L86.5,147 L82,164 L54,164 Z M100,104 L91.3,133 L108.7,133 Z" android:fillType="evenOdd" />
 </vector>

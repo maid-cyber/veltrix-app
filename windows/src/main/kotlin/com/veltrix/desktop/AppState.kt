@@ -6,6 +6,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 
@@ -209,6 +210,32 @@ class AppState(private val demo: Account? = null) {
     fun setWebrtc(v: Boolean) { Store.webrtc = v; secChanged() }
     fun setSplitOn(v: Boolean) { Store.splitOn = v; splitOn.value = v; secChanged() }
     fun setSplitApps(v: Set<String>) { Store.splitApps = v; splitApps.value = v; secChanged() }
+
+    /** Dijagnostika → Pošalji podršci: izvještaj ide u panel (Dijagnostika kupca). */
+    fun sendDiag(onDone: (Boolean) -> Unit) {
+        val link = Store.link.ifBlank { return }
+        scope.launch {
+            val ok = runCatching {
+                val connected = status.value == Status.Started
+                val o = org.json.JSONObject().put("os", "windows").put("build", BuildInfo.BUILD).put("vpn_on", connected)
+                    .put("protocol", chosenProtocol()).put("server_id", currentServer()?.id ?: -1)
+                val inet = Api.tcpOnce("1.1.1.1", 443)
+                o.put("internet", org.json.JSONObject().put("ok", inet.first).put("detail", inet.second))
+                val list = account.value?.servers.orEmpty().filter { !it.isChain }.distinctBy { it.host to it.port }.take(20)
+                val res = list.map { s -> async { s to Api.tcpOnce(s.host, s.port) } }.map { it.await() }
+                o.put("servers", org.json.JSONArray().apply { res.forEach { (s, r) -> put(org.json.JSONObject().put("id", s.id).put("host", s.host).put("port", s.port).put("ok", r.first).put("detail", r.second)) } })
+                if (connected) {
+                    val tr = Api.viaVpn("http://cp.cloudflare.com/generate_204")
+                    o.put("traffic", org.json.JSONObject().put("ok", tr.first).put("detail", tr.second))
+                    Api.viaVpn("https://api.ipify.org").let { if (it.first) o.put("ip", it.second.removePrefix("HTTP 200").trim()) }
+                }
+                o.put("errors", org.json.JSONArray(Core.log().lines().filter { "ERROR" in it || "FATAL" in it || "WARN" in it }.takeLast(30)))
+                Api.sendDiag(link, o)
+            }.onFailure { message.value = t("Could not send: ", "Slanje nije uspjelo: ") + it.message }.isSuccess
+            if (ok) message.value = t("Sent. Support can now see what is wrong.", "Poslano. Podrška sad vidi gdje je problem.")
+            onDone(ok)
+        }
+    }
 
     fun logout() {
         Core.stop()

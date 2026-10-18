@@ -342,6 +342,19 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    /** Dijagnostika → Pošalji podršci. */
+    fun sendDiag(onDone: (Boolean) -> Unit) {
+        val link = Store.link.ifBlank { return }
+        viewModelScope.launch {
+            val ok = runCatching {
+                val r = com.veltrix.vpn.data.Diagnostics.report(account.value, status.value == Status.Started, chosenProtocol(), currentServer()?.id ?: -1)
+                Api.sendDiag(link, r)
+            }.onFailure { message.value = t("Could not send: ", "Slanje nije uspjelo: ") + it.message }.isSuccess
+            if (ok) message.value = t("Sent. Support can now see what is wrong.", "Poslano. Podrška sad vidi gdje je problem.")
+            onDone(ok)
+        }
+    }
+
     fun logout() {
         stop()
         Store.logout()

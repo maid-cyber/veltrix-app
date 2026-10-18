@@ -689,6 +689,15 @@ private fun DiagnosticsScreen(state: AppState) {
         val scope = rememberCoroutineScope()
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (feat.diag) BigButton(t("Copy report", "Kopiraj izvještaj"), null, filled = false, modifier = Modifier.width(200.dp)) { copyText((test ?: "") + "\n\n" + log) }
+            if (feat.diag) {
+                var sending by remember { mutableStateOf(false) }
+                var sent by remember { mutableStateOf(false) }
+                BigButton(if (sending) t("Sending…", "Šaljem…") else if (sent) t("Sent ✓", "Poslano ✓") else t("Send to support", "Pošalji podršci"), null, filled = !sending && !sent, modifier = Modifier.width(200.dp)) {
+                    if (sending || sent) return@BigButton
+                    sending = true
+                    state.sendDiag { ok -> sending = false; sent = ok }
+                }
+            }
             if (status == Status.Started && feat.speedtest) {
                 BigButton(if (speedRun) t("Testing…", "Mjerim…") else t("Speed test", "Test brzine"), null, filled = !speedRun, modifier = Modifier.width(200.dp)) {
                     if (speedRun) return@BigButton

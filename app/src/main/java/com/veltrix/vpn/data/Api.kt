@@ -60,6 +60,12 @@ object Api {
         } finally { c.disconnect() }
     }
 
+    /** Pošalji izvještaj dijagnostike podršci (panel). */
+    suspend fun sendDiag(link: String, report: JSONObject) {
+        val (code, j) = postJson("$link/diag", report.toString())
+        if (code != 200) throw IllegalStateException(j.optString("error").ifBlank { "HTTP $code" })
+    }
+
     /** Probni nalog: vraća pretplatni link ili baca grešku sa porukom panela. */
     suspend fun trial(device: String, ref: String): String {
         val (code, j) = postJson("${com.veltrix.vpn.BuildConfig.PANEL_URL}/trial", JSONObject().put("device", device).put("ref", ref).put("app", "android").toString())

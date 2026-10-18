@@ -328,6 +328,23 @@ fun DiagnosticsScreen(vm: MainViewModel, onBack: () -> Unit) {
             }
         }
         if (feat.diag) {
+            var sending by remember { mutableStateOf(false) }
+            var sent by remember { mutableStateOf(false) }
+            Card(Modifier.padding(horizontal = 18.dp, vertical = 12.dp).fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text(t("Still not working?", "I dalje ne radi?"), color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        t("Send this test to support. They will see if the problem is on the server or on your network. Best with the VPN disconnected.",
+                            "Pošalji ovaj test podršci. Vidjet će je li problem na serveru ili na tvojoj mreži. Najbolje dok VPN nije spojen."),
+                        color = C.soft, fontSize = 14.sp, modifier = Modifier.padding(vertical = 8.dp),
+                    )
+                    BigButton(if (sending) t("Sending…", "Šaljem…") else if (sent) t("Sent ✓", "Poslano ✓") else t("Send to support", "Pošalji podršci"), null, filled = !sending && !sent) {
+                        if (sending || sent) return@BigButton
+                        sending = true
+                        vm.sendDiag { ok -> sending = false; sent = ok }
+                    }
+                }
+            }
         Text(t("VPN engine log", "Log VPN motora"), color = C.soft, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 6.dp))
         Card(Modifier.padding(horizontal = 18.dp).fillMaxWidth()) {
             Text(

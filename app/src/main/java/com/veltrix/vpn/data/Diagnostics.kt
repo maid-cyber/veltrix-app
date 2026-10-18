@@ -1,6 +1,8 @@
 package com.veltrix.vpn.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.InetSocketAddress
@@ -74,6 +76,38 @@ object Diagnostics {
         }.getOrDefault(-1.0)
         down to up
     }
+
+    /** Izvještaj za podršku (šalje se panelu): internet, dostupnost svakog servera sa ove mreže, promet kroz VPN, greške iz loga. */
+    suspend fun report(acc: Account?, connected: Boolean, protocol: String, serverId: Int): org.json.JSONObject = coroutineScope {
+        val o = org.json.JSONObject()
+            .put("os", "android").put("build", com.veltrix.vpn.BuildConfig.VERSION_CODE).put("vpn_on", connected)
+            .put("protocol", protocol).put("server_id", serverId).put("network", networkName())
+        val inet = tcp("1.1.1.1", 443)
+        o.put("internet", org.json.JSONObject().put("ok", inet.first).put("detail", inet.second))
+        // aplikacija je izuzeta iz VPN-a, pa ovo provjerava pravu mrežu kupca i kad je VPN spojen
+        val list = acc?.servers.orEmpty().filter { !it.isChain }.distinctBy { it.host to it.port }.take(20)
+        val res = list.map { s -> async { s to tcp(s.host, s.port) } }.map { it.await() }
+        o.put("servers", org.json.JSONArray().apply { res.forEach { (s, r) -> put(org.json.JSONObject().put("id", s.id).put("host", s.host).put("port", s.port).put("ok", r.first).put("detail", r.second)) } })
+        if (connected) {
+            val tr = viaVpn("http://cp.cloudflare.com/generate_204")
+            o.put("traffic", org.json.JSONObject().put("ok", tr.first).put("detail", tr.second))
+            viaVpn("https://api.ipify.org").let { if (it.first) o.put("ip", it.second.removePrefix("HTTP 200").trim()) }
+        }
+        val errs = logTail(400).lines().filter { "ERROR" in it || "FATAL" in it || "WARN" in it }.takeLast(30)
+        o.put("errors", org.json.JSONArray(errs))
+        o
+    }
+
+    private fun networkName(): String = runCatching {
+        val cm = com.veltrix.vpn.App.application.getSystemService(android.net.ConnectivityManager::class.java)
+        val nets = cm.allNetworks.mapNotNull { cm.getNetworkCapabilities(it) }.filter { !it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) }
+        when {
+            nets.any { it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) } -> "WiFi"
+            nets.any { it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) } -> "Mobilni podaci"
+            nets.any { it.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) } -> "Ethernet"
+            else -> ""
+        }
+    }.getOrDefault("")
 
     /** Radi li promet kroz VPN (za automatski izbor protokola). */
     suspend fun vpnWorks(): Boolean = viaVpn("http://cp.cloudflare.com/generate_204").first

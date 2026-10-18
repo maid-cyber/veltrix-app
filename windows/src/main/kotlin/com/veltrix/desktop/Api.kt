@@ -101,6 +101,36 @@ object Api {
         down to up
     }
 
+    /** Jedan TCP pokušaj: (uspjelo, "N ms" ili greška). */
+    suspend fun tcpOnce(host: String, port: Int): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        runCatching {
+            Socket().use { s ->
+                val t = System.nanoTime()
+                s.connect(InetSocketAddress(host, port), 5000)
+                true to "${(System.nanoTime() - t) / 1_000_000} ms"
+            }
+        }.getOrElse { false to (it.javaClass.simpleName + ": " + (it.message ?: "")) }
+    }
+
+    /** Stranica kroz VPN (lokalni proxy motora): (uspjelo, odgovor). */
+    suspend fun viaVpn(url: String): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val c = URL(url).openConnection(vpnProxy) as HttpURLConnection
+            c.connectTimeout = 10000; c.readTimeout = 10000
+            try {
+                val code = c.responseCode
+                val body = runCatching { c.inputStream.bufferedReader().use { it.readText().trim().take(60) } }.getOrDefault("")
+                (code in 200..299) to "HTTP $code $body".trim()
+            } finally { c.disconnect() }
+        }.getOrElse { false to (it.javaClass.simpleName + ": " + (it.message ?: "")) }
+    }
+
+    /** Pošalji izvještaj dijagnostike podršci (panel). */
+    suspend fun sendDiag(link: String, report: org.json.JSONObject) {
+        val (code, j) = postJson("$link/diag", report.toString())
+        if (code != 200) throw IllegalStateException(j.optString("error").ifBlank { "HTTP $code" })
+    }
+
     /** TCP vrijeme spajanja (ms), -1 ako ne odgovara ni iz 3 pokušaja. */
     suspend fun ping(host: String, port: Int): Int = withContext(Dispatchers.IO) {
         repeat(3) { n ->

@@ -103,7 +103,7 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
         }
         Spacer(Modifier.height(10.dp))
 
-        LazyColumn(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        LazyColumn(contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (cat == "all" && query.isBlank()) {
                 item {
                     Card(Modifier.fillMaxWidth(), glow = selected == -1, onClick = { vm.select(-1); onPicked() }) {
@@ -123,21 +123,21 @@ fun LocationsScreen(vm: MainViewModel, onPicked: () -> Unit) {
             }
             items(list, key = { it.id }) { s ->
                 Card(Modifier.fillMaxWidth(), glow = selected == s.id, onClick = { vm.select(s.id); onPicked() }) {
-                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Flag(s.country, 48.dp)
-                        Spacer(Modifier.width(14.dp))
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Flag(s.country, 38.dp)
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(if (s.isChain) s.name else s.countryName, color = C.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                            Text(if (s.isChain) s.route else s.city, color = C.muted, fontSize = 14.sp)
+                            Text(if (s.isChain) s.name else s.countryName, color = C.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            Text(if (s.isChain) s.route else s.city, color = C.muted, fontSize = 13.sp)
                             if (s.tags.isNotEmpty() && !s.isChain) {
                                 Text(s.tags.joinToString(" · ") { tagName(it) }, color = C.redHi, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             }
-                            Box(Modifier.padding(top = 4.dp)) { PingDot(pings[s.id]) }
+                            Box(Modifier.padding(top = 3.dp)) { PingDot(pings[s.id]) }
                         }
                         Icon(
                             if (s.id in favs) Icons.Filled.Star else Icons.Outlined.StarBorder, null,
                             tint = if (s.id in favs) C.red else C.muted,
-                            modifier = Modifier.size(30.dp).clip(CircleShape).clickable { vm.toggleFavorite(s.id) }.padding(2.dp),
+                            modifier = Modifier.size(26.dp).clip(CircleShape).clickable { vm.toggleFavorite(s.id) }.padding(2.dp),
                         )
                         Spacer(Modifier.width(10.dp))
                         Icon(Icons.Outlined.ChevronRight, null, tint = C.muted)

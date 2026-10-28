@@ -1,0 +1,124 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "udp",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "proxy"
+      },
+      {
+        "type": "local",
+        "tag": "local"
+      }
+    ],
+    "final": "remote",
+    "strategy": "ipv4_only"
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "adilink",
+      "address": [
+        "172.19.0.1/30",
+        "fdfe:dcba:9876::1/126"
+      ],
+      "mtu": 9000,
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "mixed",
+      "route_exclude_address": [
+        "46.224.10.214/32"
+      ]
+    },
+    {
+      "type": "mixed",
+      "tag": "diag-in",
+      "listen": "127.0.0.1",
+      "listen_port": 10809
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "server": "46.224.10.214",
+      "server_port": 443,
+      "uuid": "97c7c14d-024d-4987-a220-cdc20508169d",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "Jw12QccBVyoKCt_lhik3HOqrU8D4nEm5d6e8zV3nbn8",
+          "short_id": "f42b98e5f6c6bc7e"
+        }
+      },
+      "tag": "proxy"
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      },
+      {
+        "process_name": [
+          "chromium",
+          "steam"
+        ],
+        "outbound": "direct"
+      },
+      {
+        "ip_version": 6,
+        "action": "reject"
+      },
+      {
+        "network": "udp",
+        "port": [
+          3478,
+          3479,
+          5349
+        ],
+        "port_range": [
+          "19302:19309"
+        ],
+        "action": "reject"
+      },
+      {
+        "protocol": "stun",
+        "action": "reject"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct"
+      }
+    ],
+    "final": "proxy",
+    "auto_detect_interface": true,
+    "default_domain_resolver": "local"
+  },
+  "experimental": {
+    "clash_api": {
+      "external_controller": "127.0.0.1:9097",
+      "secret": "x"
+    }
+  }
+}

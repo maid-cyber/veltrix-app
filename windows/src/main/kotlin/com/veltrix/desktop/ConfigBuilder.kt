@@ -27,6 +27,8 @@ data class SecurityOptions(
 object ConfigBuilder {
     const val API_PORT = 9097
     const val DIAG_PORT = 10809
+    // Windows dozvoljava razmak u imenu adaptera; Linux TUN ime mora biti bez razmaka i ≤15 znakova
+    private val IFACE = if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) "AdiLink VPN" else "adilink"
 
     fun outboundFor(server: Server, protocol: String): JSONObject {
         val list = (0 until server.outbounds.length()).map { server.outbounds.getJSONObject(it) }
@@ -41,7 +43,7 @@ object ConfigBuilder {
     fun build(server: Server, protocol: String, sec: SecurityOptions, apiSecret: String): String {
         val remoteDns = JSONObject().put("type", if (sec.dnsProtect) "udp" else "https").put("tag", "remote").put("server", "1.1.1.1").put("detour", "proxy")
         val tun = JSONObject()
-            .put("type", "tun").put("tag", "tun-in").put("interface_name", "AdiLink VPN")
+            .put("type", "tun").put("tag", "tun-in").put("interface_name", IFACE)
             .put("address", JSONArray().put("172.19.0.1/30").apply { if (sec.ipLeak) put("fdfe:dcba:9876::1/126") })
             .put("mtu", 9000).put("auto_route", true).put("strict_route", true).put("stack", "mixed")
         // Windows: adresa VPN servera ide mimo tunela (inače se veza do servera vrti u krug kroz sam tunel → i/o timeout)

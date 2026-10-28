@@ -15,8 +15,20 @@ import java.util.UUID
 
 enum class Status { Stopped, Starting, Started, Stopping }
 
-/** Pokreće i gasi sing-box.exe (VPN motor). Traži administratorska prava (Wintun adapter). */
+/** Pokreće i gasi sing-box (VPN motor). Windows: traži administratorska prava (Wintun).
+ *  Linux: TUN traži root, pa se motor pokreće preko pkexec (grafička potvrda lozinkom). */
 object Core {
+    private val isWindows = System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+    private val binName = if (isWindows) "sing-box.exe" else "sing-box"
+    // Compose appResources poddirektorij: Windows "windows", Linux x64 "linux-x64"
+    private val resSub = if (isWindows) "windows" else "linux-x64"
+    private val isRoot = !isWindows && runCatching {
+        ProcessBuilder("id", "-u").redirectErrorStream(true).start().inputStream.bufferedReader().readText().trim() == "0"
+    }.getOrDefault(false)
+    private val pkexec: String? by lazy {
+        if (isWindows || isRoot) null
+        else listOf("/usr/bin/pkexec", "/bin/pkexec").firstOrNull { File(it).canExecute() }
+    }
     val status = MutableStateFlow(Status.Stopped)
     val error = MutableStateFlow<String?>(null)
     val down = MutableStateFlow(0L)
@@ -36,7 +48,7 @@ object Core {
     val binary: File
         get() {
             val dir = System.getProperty("compose.application.resources.dir")?.let { File(it) }
-            return listOfNotNull(dir?.let { File(it, "sing-box.exe") }, File("resources/windows/sing-box.exe")).firstOrNull { it.exists() } ?: File("sing-box.exe")
+            return listOfNotNull(dir?.let { File(it, binName) }, File("resources/$resSub/$binName"), File("resources/linux/$binName")).firstOrNull { it.exists() } ?: File(binName)
         }
 
     fun start(config: (String) -> String) {
@@ -54,11 +66,14 @@ object Core {
         watch = scope.launch {
             try {
                 val bin = binary
-                if (!bin.exists()) throw IllegalStateException(if (Store.bosnian()) "Nedostaje sing-box.exe. Ponovo instaliraj aplikaciju." else "sing-box.exe is missing. Reinstall the app.")
+                if (!bin.exists()) throw IllegalStateException(if (Store.bosnian()) "Nedostaje $binName. Ponovo instaliraj aplikaciju." else "$binName is missing. Reinstall the app.")
+                if (!isWindows) bin.setExecutable(true)
                 val cfg = File(Store.dataDir, "config.json").apply { writeText(lastConfig) }
                 synchronized(logLines) { logLines.clear() }
-                val p = ProcessBuilder(bin.path, "run", "-c", cfg.path, "-D", Store.dataDir.path, "--disable-color")
-                    .redirectErrorStream(true).start()
+                // Linux: TUN traži root → preko pkexec (grafička potvrda). Windows i root: direktno.
+                val coreCmd = listOf(bin.absolutePath, "run", "-c", cfg.absolutePath, "-D", Store.dataDir.absolutePath, "--disable-color")
+                val cmd = pkexec?.let { listOf(it) + coreCmd } ?: coreCmd
+                val p = ProcessBuilder(cmd).redirectErrorStream(true).start()
                 proc = p
                 launch { p.inputStream.bufferedReader().forEachLine { addLog(it) } }
                 // motor radi kad odgovara njegov lokalni API
@@ -105,10 +120,14 @@ object Core {
 
     /** Zadnja greška iz loga, u razumljivom obliku. */
     private fun reason(): String {
-        val l = log()
+        val l = log(); val low = l.lowercase()
         return when {
-            "Access is denied" in l || "access denied" in l.lowercase() || "elevat" in l.lowercase() ->
+            isWindows && ("Access is denied" in l || "access denied" in low || "elevat" in low) ->
                 if (Store.bosnian()) "Pokreni AdiLink VPN kao administrator." else "Run AdiLink VPN as administrator."
+            !isWindows && ("not authorized" in low || "dismissed" in low || "authentication failed" in low) ->
+                if (Store.bosnian()) "Potvrda je odbijena. Dozvoli pristup (lozinkom) da bi se VPN pokrenuo." else "Authorization was dismissed. Allow access to start the VPN."
+            !isWindows && ("operation not permitted" in low || "permission denied" in low || "must be run as root" in low || pkexec == null && !isRoot) ->
+                if (Store.bosnian()) "VPN traži administratorska prava. Instaliraj 'pkexec' (polkit) ili pokreni kao root." else "The VPN needs admin rights. Install 'pkexec' (polkit) or run as root."
             else -> l.lines().lastOrNull { "FATAL" in it || "ERROR" in it }?.substringAfter("] ")?.take(200)
                 ?: (if (Store.bosnian()) "VPN motor se ugasio." else "VPN engine stopped.")
         }
